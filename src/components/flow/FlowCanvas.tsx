@@ -23,6 +23,7 @@ import { useFlowEditor } from '@/hooks/useFlowEditor';
 import { useFlowStepper } from '@/hooks/useFlowStepper';
 import { useKeyboardNavigation } from '@/hooks/useKeyboardNavigation';
 import type { FlowConfig } from '@/types/flow';
+import { toast } from 'sonner';
 
 import sampleFlowConfig from '@/data/sample-flow.json';
 
@@ -155,11 +156,55 @@ function FlowCanvasInner({ initialConfig = sampleFlowConfig as FlowConfig }: Flo
     URL.revokeObjectURL(url);
   }, [editor]);
 
-  // Import handler (placeholder for now)
+  // Import handler
   const handleImport = useCallback(() => {
-    // TODO: Implement in US-021
-    console.log('Import clicked');
-  }, []);
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+
+    input.onchange = (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          const content = event.target?.result as string;
+          const config = JSON.parse(content) as FlowConfig;
+
+          // Validate required fields
+          if (!config.meta?.title) {
+            throw new Error('Invalid flow: missing meta.title');
+          }
+          if (!Array.isArray(config.nodes)) {
+            throw new Error('Invalid flow: missing nodes array');
+          }
+          if (!Array.isArray(config.edges)) {
+            throw new Error('Invalid flow: missing edges array');
+          }
+
+          // Load the config
+          editor.loadConfig(config);
+          toast.success('Flow imported successfully', {
+            description: `Loaded "${config.meta.title}" with ${config.nodes.length} nodes`,
+          });
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'Unknown error';
+          toast.error('Failed to import flow', {
+            description: message,
+          });
+        }
+      };
+
+      reader.onerror = () => {
+        toast.error('Failed to read file');
+      };
+
+      reader.readAsText(file);
+    };
+
+    input.click();
+  }, [editor]);
 
   const isPresentation = editor.mode === 'presentation';
 

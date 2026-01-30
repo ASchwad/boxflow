@@ -37,8 +37,9 @@ interface UseFlowEditorReturn {
   // Get highest step number
   getMaxStep: () => number;
 
-  // Export config
+  // Config operations
   getConfig: () => FlowConfig;
+  loadConfig: (config: FlowConfig) => void;
 }
 
 export function useFlowEditor({ initialConfig }: UseFlowEditorOptions): UseFlowEditorReturn {
@@ -179,6 +180,27 @@ export function useFlowEditor({ initialConfig }: UseFlowEditorOptions): UseFlowE
     };
   }, [meta, nodes, edges, initialConfig.settings]);
 
+  const loadConfig = useCallback((config: FlowConfig) => {
+    setMeta(config.meta);
+
+    const newNodes: Node[] = config.nodes.map((node) => ({
+      id: node.id,
+      type: node.type,
+      position: node.position,
+      data: { ...node.data, revealAtStep: node.revealAtStep },
+    }));
+
+    const newEdges: Edge[] = config.edges.map((edge) => ({
+      id: edge.id,
+      source: edge.source,
+      target: edge.target,
+      type: edge.type || 'animatedDashed',
+    }));
+
+    setNodes(newNodes);
+    setEdges(newEdges);
+  }, [setNodes, setEdges]);
+
   return {
     mode,
     setMode,
@@ -199,5 +221,6 @@ export function useFlowEditor({ initialConfig }: UseFlowEditorOptions): UseFlowE
     deleteEdge,
     getMaxStep,
     getConfig,
+    loadConfig,
   };
 }
