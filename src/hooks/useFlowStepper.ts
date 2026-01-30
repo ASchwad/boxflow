@@ -63,17 +63,23 @@ export function useFlowStepper({
       }));
   }, [nodes, currentStep]);
 
-  // Filter visible edges - only show if both source and target are visible
+  // Filter visible edges - only show if both source and target nodes are visible
   const visibleEdges = useMemo(() => {
     const visibleNodeIds = new Set(visibleNodes.map((n) => n.id));
+
     return edges.filter((edge) => {
+      // Edge is ONLY visible when BOTH connected nodes are visible
+      const sourceVisible = visibleNodeIds.has(edge.source);
+      const targetVisible = visibleNodeIds.has(edge.target);
+
+      // If edge has explicit revealAtStep, also check that
       const edgeRevealAt = edge.data?.revealAtStep;
-      // If edge has explicit revealAtStep, check it
       if (edgeRevealAt !== undefined) {
-        return edgeRevealAt <= currentStep;
+        return edgeRevealAt <= currentStep && sourceVisible && targetVisible;
       }
-      // Otherwise, show edge only if both nodes are visible
-      return visibleNodeIds.has(edge.source) && visibleNodeIds.has(edge.target);
+
+      // Default: show edge only if both nodes are visible
+      return sourceVisible && targetVisible;
     });
   }, [edges, visibleNodes, currentStep]);
 

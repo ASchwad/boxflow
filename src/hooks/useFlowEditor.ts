@@ -72,6 +72,7 @@ export function useFlowEditor({ initialConfig }: UseFlowEditorOptions): UseFlowE
   }, []);
 
   const getMaxStep = useCallback(() => {
+    if (nodes.length === 0) return 0; // Return 0 for empty canvas
     return nodes.reduce((max, node) => {
       const step = (node.data?.revealAtStep as number) ?? 1;
       return Math.max(max, step);
@@ -80,7 +81,10 @@ export function useFlowEditor({ initialConfig }: UseFlowEditorOptions): UseFlowE
 
   const addNode = useCallback(
     (type: string, position: { x: number; y: number }) => {
-      const newStep = getMaxStep() + 1;
+      // First node on empty canvas gets step 1, otherwise maxStep + 1
+      // Use getMaxStep() which returns 0 for empty canvas
+      const maxStep = getMaxStep();
+      const newStep = maxStep === 0 ? 1 : maxStep + 1;
       const id = `${type}-${Date.now()}`;
 
       let data: any = { revealAtStep: newStep };
@@ -181,22 +185,26 @@ export function useFlowEditor({ initialConfig }: UseFlowEditorOptions): UseFlowE
   }, [meta, nodes, edges, initialConfig.settings]);
 
   const loadConfig = useCallback((config: FlowConfig) => {
+    // Update meta
     setMeta(config.meta);
 
-    const newNodes: Node[] = config.nodes.map((node) => ({
+    // Convert config nodes to React Flow format (or empty array)
+    const newNodes: Node[] = (config.nodes || []).map((node) => ({
       id: node.id,
       type: node.type,
       position: node.position,
       data: { ...node.data, revealAtStep: node.revealAtStep },
     }));
 
-    const newEdges: Edge[] = config.edges.map((edge) => ({
+    // Convert config edges to React Flow format (or empty array)
+    const newEdges: Edge[] = (config.edges || []).map((edge) => ({
       id: edge.id,
       source: edge.source,
       target: edge.target,
       type: edge.type || 'animatedDashed',
     }));
 
+    // Replace nodes and edges completely
     setNodes(newNodes);
     setEdges(newEdges);
   }, [setNodes, setEdges]);

@@ -23,6 +23,7 @@ import { useFlowEditor } from '@/hooks/useFlowEditor';
 import { useFlowStepper } from '@/hooks/useFlowStepper';
 import { useKeyboardNavigation } from '@/hooks/useKeyboardNavigation';
 import { useAutoSave } from '@/hooks/useAutoSave';
+import { FlowEditorProvider } from '@/contexts/FlowEditorContext';
 import type { FlowConfig } from '@/types/flow';
 import { toast } from 'sonner';
 
@@ -48,7 +49,7 @@ interface FlowCanvasProps {
 
 function FlowCanvasInner({ initialConfig = sampleFlowConfig as FlowConfig }: FlowCanvasProps) {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
-  const { fitView, screenToFlowPosition } = useReactFlow();
+  const { fitView, screenToFlowPosition, getViewport } = useReactFlow();
   const [editingNode, setEditingNode] = useState<Node | null>(null);
 
   const editor = useFlowEditor({ initialConfig });
@@ -61,6 +62,23 @@ function FlowCanvasInner({ initialConfig = sampleFlowConfig as FlowConfig }: Flo
     getConfig: editor.getConfig,
     loadConfig: editor.loadConfig,
   });
+
+  // Handle click-to-add from palette (adds node at viewport center)
+  const handlePaletteAdd = useCallback(
+    (type: string) => {
+      if (!reactFlowWrapper.current) return;
+
+      const { x, y, zoom } = getViewport();
+      const rect = reactFlowWrapper.current.getBoundingClientRect();
+
+      // Calculate center of viewport in flow coordinates
+      const centerX = (-x + rect.width / 2) / zoom;
+      const centerY = (-y + rect.height / 2) / zoom;
+
+      editor.addNode(type, { x: centerX, y: centerY });
+    },
+    [getViewport, editor]
+  );
 
   // Handle drop from palette
   const onDragOver = useCallback((event: DragEvent) => {
@@ -94,24 +112,21 @@ function FlowCanvasInner({ initialConfig = sampleFlowConfig as FlowConfig }: Flo
     edges: editor.edges as any,
   });
 
-  // Auto-focus in presentation mode
-  const focusOnVisibleNodes = useCallback(() => {
+  // Fit viewport ONCE when entering presentation mode (to show all nodes)
+  // This prevents jarring viewport changes between steps
+  useEffect(() => {
     if (editor.mode === 'presentation') {
+      // Fit to ALL nodes (not just visible), so viewport stays stable during presentation
       setTimeout(() => {
         fitView({
-          padding: 0.2,
-          duration: 300,
-          nodes: stepper.visibleNodes,
+          padding: 0.3,
+          duration: 400,
+          nodes: editor.nodes, // All nodes, not just visible
         });
       }, 50);
     }
-  }, [fitView, stepper.visibleNodes, editor.mode]);
-
-  useEffect(() => {
-    if (editor.mode === 'presentation') {
-      focusOnVisibleNodes();
-    }
-  }, [stepper.currentStep, focusOnVisibleNodes, editor.mode]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editor.mode, fitView]); // Only trigger on mode change, NOT on step change
 
   // Keyboard navigation (only in presentation mode)
   useKeyboardNavigation({
@@ -164,6 +179,14 @@ function FlowCanvasInner({ initialConfig = sampleFlowConfig as FlowConfig }: Flo
   const handleNodePropertiesSave = useCallback(
     (nodeId: string, data: Record<string, unknown>) => {
       editor.updateNode(nodeId, data);
+    },
+    [editor]
+  );
+
+  // Handle step changes from StepBadge
+  const handleUpdateNodeStep = useCallback(
+    (nodeId: string, step: number) => {
+      editor.updateNode(nodeId, { revealAtStep: step });
     },
     [editor]
   );
@@ -233,8 +256,18 @@ function FlowCanvasInner({ initialConfig = sampleFlowConfig as FlowConfig }: Flo
   // New flow handler
   const handleNewFlow = useCallback(() => {
     if (confirm('Create a new flow? This will clear the current flow and saved data.')) {
+      // Clear localStorage first
       autoSave.clearSaved();
-      editor.loadConfig(emptyFlowConfig);
+
+      // Directly clear nodes and edges for immediate effect
+      editor.setNodes([]);
+      editor.setEdges([]);
+      editor.updateMeta({
+        title: 'Untitled Flow',
+        subtitle: '',
+        version: '1.0',
+      });
+
       toast.success('New flow created');
     }
   }, [autoSave, editor]);
@@ -242,7 +275,7 @@ function FlowCanvasInner({ initialConfig = sampleFlowConfig as FlowConfig }: Flo
   const isPresentation = editor.mode === 'presentation';
 
   return (
-    <div className="h-screen w-full flex flex-col">
+    <div className={`h-screen w-full flex flex-col ${isPresentation ? 'presentation-mode' : 'editor-mode'}`}>
       {/* Header */}
       {isPresentation ? (
         <PresentationHeader meta={editor.meta} onExit={editor.exitPresentation} />
@@ -261,16 +294,20 @@ function FlowCanvasInner({ initialConfig = sampleFlowConfig as FlowConfig }: Flo
       {/* Canvas */}
       <div className="flex-1 relative flex">
         {/* Node Palette (editor only) */}
-        {!isPresentation && <NodePalette />}
+        {!isPresentation && <NodePalette onAddNode={handlePaletteAdd} />}
 
         {/* Main canvas area */}
         <div className="flex-1 relative" ref={reactFlowWrapper}>
-          <CanvasContextMenu
-            onAddNode={editor.addNode}
-            screenToFlowPosition={screenToFlowPosition}
-            disabled={isPresentation}
+          <FlowEditorProvider
+            updateNodeStep={handleUpdateNodeStep}
+            isEditorMode={!isPresentation}
           >
-            <ReactFlow
+            <CanvasContextMenu
+              onAddNode={editor.addNode}
+              screenToFlowPosition={screenToFlowPosition}
+              disabled={isPresentation}
+            >
+              <ReactFlow
               nodes={isPresentation ? stepper.visibleNodes : editor.nodes}
               edges={isPresentation ? stepper.visibleEdges : editor.edges}
               onNodesChange={isPresentation ? undefined : editor.onNodesChange}
@@ -297,7 +334,8 @@ function FlowCanvasInner({ initialConfig = sampleFlowConfig as FlowConfig }: Flo
               <Controls position="bottom-left" />
               {!isPresentation && <MiniMap position="bottom-right" />}
             </ReactFlow>
-          </CanvasContextMenu>
+            </CanvasContextMenu>
+          </FlowEditorProvider>
 
           {/* Stepper Controls (presentation only) */}
           {isPresentation && (

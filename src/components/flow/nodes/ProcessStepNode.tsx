@@ -1,15 +1,22 @@
 import { Handle, Position, type NodeProps, type Node } from '@xyflow/react';
+import { StepBadge } from './StepBadge';
 
 export interface ProcessStepNodeData extends Record<string, unknown> {
   title: string;
   description?: string;
+  revealAtStep?: number;
 }
 
 export type ProcessStepNodeType = Node<ProcessStepNodeData, 'processStep'>;
 
-export function ProcessStepNode({ data }: NodeProps<ProcessStepNodeType>) {
+export function ProcessStepNode({ id, data }: NodeProps<ProcessStepNodeType>) {
+  const step = (data.revealAtStep as number) ?? 1;
+
   return (
-    <div className="min-w-[200px] max-w-[300px] bg-blue-50 border-2 border-blue-200 rounded-lg px-4 py-3 shadow-sm">
+    <div className="relative min-w-[200px] max-w-[300px] bg-blue-50 border-2 border-blue-200 rounded-lg px-4 py-3 shadow-sm">
+      {/* Step Badge (hidden in presentation mode via CSS) */}
+      <StepBadge step={step} nodeId={id} />
+
       {/* Connection handles */}
       <Handle
         type="target"

@@ -3,11 +3,9 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { FileText, MessageSquare, Image, Plus } from 'lucide-react';
+import { FileText, MessageSquare, Image } from 'lucide-react';
 
 interface ContextMenuState {
   isOpen: boolean;
@@ -102,11 +100,9 @@ export function CanvasContextMenu({
           />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="w-48">
-          <DropdownMenuLabel className="flex items-center gap-2">
-            <Plus className="h-4 w-4" />
+          <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wide">
             Add Node
-          </DropdownMenuLabel>
-          <DropdownMenuSeparator />
+          </div>
           <DropdownMenuItem onClick={() => handleAddNode('processStep')}>
             <FileText className="h-4 w-4 mr-2" />
             Process Step

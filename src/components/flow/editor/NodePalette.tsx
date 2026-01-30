@@ -1,5 +1,6 @@
-import type { DragEvent } from 'react';
-import { FileText, MessageSquare, Image } from 'lucide-react';
+import type { DragEvent, MouseEvent } from 'react';
+import { FileText, MessageSquare, Image, Plus } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 const nodeTypeOptions = [
   {
@@ -22,10 +23,21 @@ const nodeTypeOptions = [
   },
 ];
 
-export function NodePalette() {
+interface NodePaletteProps {
+  onAddNode?: (type: string) => void;
+}
+
+export function NodePalette({ onAddNode }: NodePaletteProps) {
   const onDragStart = (event: DragEvent, nodeType: string) => {
     event.dataTransfer.setData('application/reactflow', nodeType);
     event.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleClick = (event: MouseEvent, nodeType: string) => {
+    // Prevent triggering drag on click
+    if (onAddNode) {
+      onAddNode(nodeType);
+    }
   };
 
   return (
@@ -39,21 +51,34 @@ export function NodePalette() {
           key={type}
           draggable
           onDragStart={(e) => onDragStart(e, type)}
-          className="flex items-center gap-3 p-2 rounded-md border border-border bg-card hover:bg-accent cursor-grab active:cursor-grabbing transition-colors"
+          className="flex items-center gap-2 p-2 rounded-md border border-border bg-card hover:bg-accent transition-colors group"
         >
-          <div className="p-1.5 rounded bg-muted">
-            <Icon className="h-4 w-4 text-muted-foreground" />
+          <div
+            className="flex items-center gap-3 flex-1 min-w-0 cursor-grab active:cursor-grabbing"
+          >
+            <div className="p-1.5 rounded bg-muted">
+              <Icon className="h-4 w-4 text-muted-foreground" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-foreground truncate">{label}</p>
+              <p className="text-xs text-muted-foreground truncate">{description}</p>
+            </div>
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-foreground truncate">{label}</p>
-            <p className="text-xs text-muted-foreground truncate">{description}</p>
-          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+            onClick={(e) => handleClick(e, type)}
+            title={`Add ${label} to canvas`}
+          >
+            <Plus className="h-4 w-4" />
+          </Button>
         </div>
       ))}
 
       <div className="mt-auto pt-4 border-t border-border">
         <p className="text-xs text-muted-foreground">
-          Drag to canvas or right-click to add
+          Drag or click + to add
         </p>
       </div>
     </div>

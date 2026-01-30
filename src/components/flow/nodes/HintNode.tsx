@@ -1,15 +1,22 @@
 import { Handle, Position, type NodeProps, type Node } from '@xyflow/react';
+import { StepBadge } from './StepBadge';
 
 export interface HintNodeData extends Record<string, unknown> {
   content: string;
   isCode?: boolean;
+  revealAtStep?: number;
 }
 
 export type HintNodeType = Node<HintNodeData, 'hint'>;
 
-export function HintNode({ data }: NodeProps<HintNodeType>) {
+export function HintNode({ id, data }: NodeProps<HintNodeType>) {
+  const step = (data.revealAtStep as number) ?? 1;
+
   return (
-    <div className="min-w-[200px] max-w-[400px] bg-purple-50 border-2 border-dashed border-purple-300 rounded-lg px-4 py-3">
+    <div className="relative min-w-[200px] max-w-[400px] bg-purple-50 border-2 border-dashed border-purple-300 rounded-lg px-4 py-3">
+      {/* Step Badge (hidden in presentation mode via CSS) */}
+      <StepBadge step={step} nodeId={id} />
+
       {/* Connection handles */}
       <Handle
         type="target"

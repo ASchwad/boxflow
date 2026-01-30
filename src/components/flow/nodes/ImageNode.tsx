@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Handle, Position, type NodeProps, type Node } from '@xyflow/react';
 import { ImageIcon, Loader2 } from 'lucide-react';
+import { StepBadge } from './StepBadge';
 
 export interface ImageNodeData extends Record<string, unknown> {
   src: string;
@@ -8,12 +9,14 @@ export interface ImageNodeData extends Record<string, unknown> {
   caption?: string;
   width?: number;
   height?: number;
+  revealAtStep?: number;
 }
 
 export type ImageNodeType = Node<ImageNodeData, 'image'>;
 
-export function ImageNode({ data }: NodeProps<ImageNodeType>) {
+export function ImageNode({ id, data }: NodeProps<ImageNodeType>) {
   const { src, alt = 'Image', caption, width = 300, height } = data;
+  const step = (data.revealAtStep as number) ?? 1;
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
 
@@ -28,7 +31,9 @@ export function ImageNode({ data }: NodeProps<ImageNodeType>) {
   };
 
   return (
-    <div className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
+    <div className="relative bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
+      {/* Step Badge (hidden in presentation mode via CSS) */}
+      <StepBadge step={step} nodeId={id} />
       {/* Connection handles */}
       <Handle
         type="target"
