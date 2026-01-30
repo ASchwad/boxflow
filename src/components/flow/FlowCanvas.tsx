@@ -1,16 +1,17 @@
-import { ReactFlow, Background, Controls, MiniMap, type Edge } from '@xyflow/react';
+import { ReactFlow, Background, Controls, MiniMap } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { nodeTypes } from './nodes';
 import { edgeTypes } from './edges';
-import type { ProcessStepNodeType, HintNodeType, ImageNodeType } from './nodes';
+import { StepperControls } from './controls/StepperControls';
+import { useFlowStepper, type StepperNode, type StepperEdge } from '@/hooks/useFlowStepper';
 
 interface FlowCanvasProps {
   title: string;
   subtitle?: string;
 }
 
-// Sample nodes for demonstration
-const sampleNodes: (ProcessStepNodeType | HintNodeType | ImageNodeType)[] = [
+// Sample nodes for demonstration with step assignments
+const sampleNodes: StepperNode[] = [
   {
     id: 'step-1',
     type: 'processStep',
@@ -18,6 +19,7 @@ const sampleNodes: (ProcessStepNodeType | HintNodeType | ImageNodeType)[] = [
     data: {
       title: 'You write a PRD',
       description: 'Define what you want to build',
+      revealAtStep: 1,
     },
   },
   {
@@ -27,6 +29,7 @@ const sampleNodes: (ProcessStepNodeType | HintNodeType | ImageNodeType)[] = [
     data: {
       title: 'Convert to prd.json',
       description: 'Break into small user stories',
+      revealAtStep: 2,
     },
   },
   {
@@ -45,23 +48,45 @@ const sampleNodes: (ProcessStepNodeType | HintNodeType | ImageNodeType)[] = [
   "passes": false
 }`,
       isCode: true,
+      revealAtStep: 2,
+    },
+  },
+  {
+    id: 'step-3',
+    type: 'processStep',
+    position: { x: 350, y: 400 },
+    data: {
+      title: 'Ralph picks up task',
+      description: 'AI agent starts working',
+      revealAtStep: 3,
     },
   },
   {
     id: 'image-1',
     type: 'image',
-    position: { x: 50, y: 350 },
+    position: { x: 550, y: 380 },
     data: {
-      src: 'https://placehold.co/200x120/e0e7ff/4f46e5?text=Screenshot',
-      alt: 'Example screenshot',
+      src: 'https://placehold.co/200x120/e0e7ff/4f46e5?text=Terminal',
+      alt: 'Terminal output',
       caption: 'Terminal output showing test results',
       width: 200,
+      revealAtStep: 4,
+    },
+  },
+  {
+    id: 'step-4',
+    type: 'processStep',
+    position: { x: 400, y: 550 },
+    data: {
+      title: 'Tests pass',
+      description: 'All acceptance criteria met',
+      revealAtStep: 4,
     },
   },
 ];
 
 // Sample edges connecting nodes
-const sampleEdges: Edge[] = [
+const sampleEdges: StepperEdge[] = [
   {
     id: 'e1-2',
     source: 'step-1',
@@ -74,9 +99,39 @@ const sampleEdges: Edge[] = [
     target: 'hint-1',
     type: 'animatedDashed',
   },
+  {
+    id: 'e2-3',
+    source: 'step-2',
+    target: 'step-3',
+    type: 'animatedDashed',
+  },
+  {
+    id: 'e3-4',
+    source: 'step-3',
+    target: 'step-4',
+    type: 'animatedDashed',
+  },
+  {
+    id: 'e3-img',
+    source: 'step-3',
+    target: 'image-1',
+    type: 'animatedDashed',
+  },
 ];
 
 export function FlowCanvas({ title, subtitle }: FlowCanvasProps) {
+  const {
+    currentStep,
+    totalSteps,
+    visibleNodes,
+    visibleEdges,
+    next,
+    previous,
+    reset,
+    isFirstStep,
+    isLastStep,
+  } = useFlowStepper({ nodes: sampleNodes, edges: sampleEdges });
+
   return (
     <div className="h-screen w-full flex flex-col">
       {/* Header */}
@@ -90,8 +145,8 @@ export function FlowCanvas({ title, subtitle }: FlowCanvasProps) {
       {/* Canvas */}
       <div className="flex-1 relative">
         <ReactFlow
-          nodes={sampleNodes}
-          edges={sampleEdges}
+          nodes={visibleNodes}
+          edges={visibleEdges}
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}
           fitView
@@ -101,6 +156,17 @@ export function FlowCanvas({ title, subtitle }: FlowCanvasProps) {
           <Controls position="bottom-left" />
           <MiniMap position="bottom-right" />
         </ReactFlow>
+
+        {/* Stepper Controls */}
+        <StepperControls
+          currentStep={currentStep}
+          totalSteps={totalSteps}
+          onNext={next}
+          onPrevious={previous}
+          onReset={reset}
+          isFirstStep={isFirstStep}
+          isLastStep={isLastStep}
+        />
       </div>
     </div>
   );
