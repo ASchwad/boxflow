@@ -1,7 +1,7 @@
 import { ReactFlow, Background, Controls, MiniMap } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { nodeTypes } from './nodes';
-import type { ProcessStepNodeType, HintNodeType } from './nodes';
+import type { ProcessStepNodeType, HintNodeType, ImageNodeType } from './nodes';
 
 interface FlowCanvasProps {
   title: string;
@@ -9,7 +9,7 @@ interface FlowCanvasProps {
 }
 
 // Sample nodes for demonstration
-const sampleNodes: (ProcessStepNodeType | HintNodeType)[] = [
+const sampleNodes: (ProcessStepNodeType | HintNodeType | ImageNodeType)[] = [
   {
     id: 'step-1',
     type: 'processStep',
@@ -44,6 +44,17 @@ const sampleNodes: (ProcessStepNodeType | HintNodeType)[] = [
   "passes": false
 }`,
       isCode: true,
+    },
+  },
+  {
+    id: 'image-1',
+    type: 'image',
+    position: { x: 50, y: 350 },
+    data: {
+      src: 'https://placehold.co/200x120/e0e7ff/4f46e5?text=Screenshot',
+      alt: 'Example screenshot',
+      caption: 'Terminal output showing test results',
+      width: 200,
     },
   },
 ];
