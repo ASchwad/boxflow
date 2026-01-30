@@ -171,6 +171,7 @@ function FlowCanvasInner({ initialConfig = sampleFlowConfig as FlowConfig }: Flo
       ) : (
         <EditorHeader
           meta={editor.meta}
+          onMetaChange={editor.updateMeta}
           onPresent={editor.enterPresentation}
           onExport={handleExport}
           onImport={handleImport}
