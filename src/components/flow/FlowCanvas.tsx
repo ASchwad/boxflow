@@ -10,111 +10,148 @@ import {
 import '@xyflow/react/dist/style.css';
 import { nodeTypes } from './nodes';
 import { edgeTypes } from './edges';
+import { EditorHeader } from './EditorHeader';
+import { PresentationHeader } from './PresentationHeader';
 import { StepperControls } from './controls/StepperControls';
+import { useFlowEditor } from '@/hooks/useFlowEditor';
 import { useFlowStepper } from '@/hooks/useFlowStepper';
 import { useKeyboardNavigation } from '@/hooks/useKeyboardNavigation';
-import {
-  type FlowConfig,
-  configToStepperNodes,
-  configToStepperEdges,
-} from '@/types/flow';
+import type { FlowConfig } from '@/types/flow';
 
-// Import sample flow configuration
 import sampleFlowConfig from '@/data/sample-flow.json';
 
 interface FlowCanvasProps {
-  config?: FlowConfig;
+  initialConfig?: FlowConfig;
 }
 
-// Inner component that uses useReactFlow hook
-function FlowCanvasInner({ config = sampleFlowConfig as FlowConfig }: FlowCanvasProps) {
+function FlowCanvasInner({ initialConfig = sampleFlowConfig as FlowConfig }: FlowCanvasProps) {
   const { fitView } = useReactFlow();
 
-  // Convert config to stepper format
-  const nodes = configToStepperNodes(config.nodes);
-  const edges = configToStepperEdges(config.edges);
+  const editor = useFlowEditor({ initialConfig });
 
-  const {
-    currentStep,
-    totalSteps,
-    visibleNodes,
-    visibleEdges,
-    next,
-    previous,
-    reset,
-    goToEnd,
-    isFirstStep,
-    isLastStep,
-  } = useFlowStepper({ nodes, edges });
+  // Stepper for presentation mode
+  const stepper = useFlowStepper({
+    nodes: editor.nodes.map((n) => ({
+      ...n,
+      data: { ...n.data, revealAtStep: (n.data?.revealAtStep as number) ?? 1 },
+    })) as any,
+    edges: editor.edges as any,
+  });
 
-  // Auto-focus on visible nodes when step changes
+  // Auto-focus in presentation mode
   const focusOnVisibleNodes = useCallback(() => {
-    if (config.settings?.autoFocus !== false) {
-      // Small delay to let the nodes render
+    if (editor.mode === 'presentation') {
       setTimeout(() => {
         fitView({
           padding: 0.2,
-          duration: config.settings?.animationDuration ?? 300,
-          nodes: visibleNodes,
+          duration: 300,
+          nodes: stepper.visibleNodes,
         });
       }, 50);
     }
-  }, [fitView, visibleNodes, config.settings]);
+  }, [fitView, stepper.visibleNodes, editor.mode]);
 
-  // Focus whenever the current step changes
   useEffect(() => {
-    focusOnVisibleNodes();
-  }, [currentStep, focusOnVisibleNodes]);
+    if (editor.mode === 'presentation') {
+      focusOnVisibleNodes();
+    }
+  }, [stepper.currentStep, focusOnVisibleNodes, editor.mode]);
 
-  // Enable keyboard navigation
+  // Keyboard navigation (only in presentation mode)
   useKeyboardNavigation({
-    onNext: next,
-    onPrevious: previous,
-    onReset: reset,
-    onGoToEnd: goToEnd,
+    onNext: stepper.next,
+    onPrevious: stepper.previous,
+    onReset: stepper.reset,
+    onGoToEnd: stepper.goToEnd,
+    enabled: editor.mode === 'presentation',
   });
+
+  // Escape to exit presentation
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && editor.mode === 'presentation') {
+        editor.exitPresentation();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [editor.mode, editor.exitPresentation]);
+
+  // Export handler
+  const handleExport = useCallback(() => {
+    const config = editor.getConfig();
+    const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${config.meta.title.toLowerCase().replace(/\s+/g, '-')}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [editor]);
+
+  // Import handler (placeholder for now)
+  const handleImport = useCallback(() => {
+    // TODO: Implement in US-021
+    console.log('Import clicked');
+  }, []);
+
+  const isPresentation = editor.mode === 'presentation';
 
   return (
     <div className="h-screen w-full flex flex-col">
       {/* Header */}
-      <header className="text-center py-6 border-b border-border bg-background">
-        <h1 className="text-2xl font-semibold text-foreground">{config.meta.title}</h1>
-        {config.meta.subtitle && (
-          <p className="text-sm text-muted-foreground mt-1">{config.meta.subtitle}</p>
-        )}
-      </header>
+      {isPresentation ? (
+        <PresentationHeader meta={editor.meta} onExit={editor.exitPresentation} />
+      ) : (
+        <EditorHeader
+          meta={editor.meta}
+          onPresent={editor.enterPresentation}
+          onExport={handleExport}
+          onImport={handleImport}
+        />
+      )}
 
       {/* Canvas */}
-      <div className="flex-1 relative">
-        <ReactFlow
-          nodes={visibleNodes}
-          edges={visibleEdges}
-          nodeTypes={nodeTypes}
-          edgeTypes={edgeTypes}
-          fitView
-          proOptions={{ hideAttribution: false }}
-        >
-          <Background color="#e5e7eb" gap={20} />
-          <Controls position="bottom-left" />
-          <MiniMap position="bottom-right" />
-        </ReactFlow>
+      <div className="flex-1 relative flex">
+        {/* Main canvas area */}
+        <div className="flex-1 relative">
+          <ReactFlow
+            nodes={isPresentation ? stepper.visibleNodes : editor.nodes}
+            edges={isPresentation ? stepper.visibleEdges : editor.edges}
+            onNodesChange={isPresentation ? undefined : editor.onNodesChange}
+            onEdgesChange={isPresentation ? undefined : editor.onEdgesChange}
+            onConnect={isPresentation ? undefined : editor.onConnect}
+            nodeTypes={nodeTypes}
+            edgeTypes={edgeTypes}
+            fitView
+            nodesDraggable={!isPresentation}
+            nodesConnectable={!isPresentation}
+            elementsSelectable={!isPresentation}
+            proOptions={{ hideAttribution: false }}
+          >
+            <Background color="#e5e7eb" gap={20} />
+            <Controls position="bottom-left" />
+            {!isPresentation && <MiniMap position="bottom-right" />}
+          </ReactFlow>
 
-        {/* Stepper Controls */}
-        <StepperControls
-          currentStep={currentStep}
-          totalSteps={totalSteps}
-          onNext={next}
-          onPrevious={previous}
-          onReset={reset}
-          isFirstStep={isFirstStep}
-          isLastStep={isLastStep}
-        />
+          {/* Stepper Controls (presentation only) */}
+          {isPresentation && (
+            <StepperControls
+              currentStep={stepper.currentStep}
+              totalSteps={stepper.totalSteps}
+              onNext={stepper.next}
+              onPrevious={stepper.previous}
+              onReset={stepper.reset}
+              isFirstStep={stepper.isFirstStep}
+              isLastStep={stepper.isLastStep}
+            />
+          )}
+        </div>
       </div>
     </div>
   );
 }
 
-// Wrapper component with ReactFlowProvider
 export function FlowCanvas(props: FlowCanvasProps) {
   return (
     <ReactFlowProvider>
