@@ -22,3 +22,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Test artifacts
+*.mjs
+*.jpg
+*.jpeg
+/tmp/
