@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef, type DragEvent } from 'react';
 import {
   ReactFlow,
   Background,
@@ -13,6 +13,7 @@ import { edgeTypes } from './edges';
 import { EditorHeader } from './EditorHeader';
 import { PresentationHeader } from './PresentationHeader';
 import { StepperControls } from './controls/StepperControls';
+import { NodePalette } from './editor/NodePalette';
 import { useFlowEditor } from '@/hooks/useFlowEditor';
 import { useFlowStepper } from '@/hooks/useFlowStepper';
 import { useKeyboardNavigation } from '@/hooks/useKeyboardNavigation';
@@ -25,9 +26,33 @@ interface FlowCanvasProps {
 }
 
 function FlowCanvasInner({ initialConfig = sampleFlowConfig as FlowConfig }: FlowCanvasProps) {
-  const { fitView } = useReactFlow();
+  const reactFlowWrapper = useRef<HTMLDivElement>(null);
+  const { fitView, screenToFlowPosition } = useReactFlow();
 
   const editor = useFlowEditor({ initialConfig });
+
+  // Handle drop from palette
+  const onDragOver = useCallback((event: DragEvent) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+  }, []);
+
+  const onDrop = useCallback(
+    (event: DragEvent) => {
+      event.preventDefault();
+
+      const type = event.dataTransfer.getData('application/reactflow');
+      if (!type) return;
+
+      const position = screenToFlowPosition({
+        x: event.clientX,
+        y: event.clientY,
+      });
+
+      editor.addNode(type, position);
+    },
+    [screenToFlowPosition, editor]
+  );
 
   // Stepper for presentation mode
   const stepper = useFlowStepper({
@@ -113,14 +138,19 @@ function FlowCanvasInner({ initialConfig = sampleFlowConfig as FlowConfig }: Flo
 
       {/* Canvas */}
       <div className="flex-1 relative flex">
+        {/* Node Palette (editor only) */}
+        {!isPresentation && <NodePalette />}
+
         {/* Main canvas area */}
-        <div className="flex-1 relative">
+        <div className="flex-1 relative" ref={reactFlowWrapper}>
           <ReactFlow
             nodes={isPresentation ? stepper.visibleNodes : editor.nodes}
             edges={isPresentation ? stepper.visibleEdges : editor.edges}
             onNodesChange={isPresentation ? undefined : editor.onNodesChange}
             onEdgesChange={isPresentation ? undefined : editor.onEdgesChange}
             onConnect={isPresentation ? undefined : editor.onConnect}
+            onDragOver={isPresentation ? undefined : onDragOver}
+            onDrop={isPresentation ? undefined : onDrop}
             nodeTypes={nodeTypes}
             edgeTypes={edgeTypes}
             fitView
