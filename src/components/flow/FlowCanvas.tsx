@@ -22,10 +22,25 @@ import { NodePropertiesPanel } from './editor/NodePropertiesPanel';
 import { useFlowEditor } from '@/hooks/useFlowEditor';
 import { useFlowStepper } from '@/hooks/useFlowStepper';
 import { useKeyboardNavigation } from '@/hooks/useKeyboardNavigation';
+import { useAutoSave } from '@/hooks/useAutoSave';
 import type { FlowConfig } from '@/types/flow';
 import { toast } from 'sonner';
 
 import sampleFlowConfig from '@/data/sample-flow.json';
+
+const emptyFlowConfig: FlowConfig = {
+  meta: {
+    title: 'Untitled Flow',
+    subtitle: '',
+    version: '1.0',
+  },
+  nodes: [],
+  edges: [],
+  settings: {
+    autoFocus: true,
+    animationDuration: 300,
+  },
+};
 
 interface FlowCanvasProps {
   initialConfig?: FlowConfig;
@@ -37,6 +52,15 @@ function FlowCanvasInner({ initialConfig = sampleFlowConfig as FlowConfig }: Flo
   const [editingNode, setEditingNode] = useState<Node | null>(null);
 
   const editor = useFlowEditor({ initialConfig });
+
+  // Auto-save to localStorage
+  const autoSave = useAutoSave({
+    nodes: editor.nodes,
+    edges: editor.edges,
+    meta: editor.meta,
+    getConfig: editor.getConfig,
+    loadConfig: editor.loadConfig,
+  });
 
   // Handle drop from palette
   const onDragOver = useCallback((event: DragEvent) => {
@@ -206,6 +230,15 @@ function FlowCanvasInner({ initialConfig = sampleFlowConfig as FlowConfig }: Flo
     input.click();
   }, [editor]);
 
+  // New flow handler
+  const handleNewFlow = useCallback(() => {
+    if (confirm('Create a new flow? This will clear the current flow and saved data.')) {
+      autoSave.clearSaved();
+      editor.loadConfig(emptyFlowConfig);
+      toast.success('New flow created');
+    }
+  }, [autoSave, editor]);
+
   const isPresentation = editor.mode === 'presentation';
 
   return (
@@ -220,6 +253,8 @@ function FlowCanvasInner({ initialConfig = sampleFlowConfig as FlowConfig }: Flo
           onPresent={editor.enterPresentation}
           onExport={handleExport}
           onImport={handleImport}
+          onNewFlow={handleNewFlow}
+          saveStatus={autoSave.status}
         />
       )}
 

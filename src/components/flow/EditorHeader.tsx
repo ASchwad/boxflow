@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect, useCallback, type KeyboardEvent } from 'react';
 import { Button } from '@/components/ui/button';
-import { Play, Download, Upload, Pencil } from 'lucide-react';
+import { Play, Download, Upload, Pencil, FilePlus, Check, Loader2 } from 'lucide-react';
 import type { FlowMeta } from '@/types/flow';
+import type { SaveStatus } from '@/hooks/useAutoSave';
 
 interface EditorHeaderProps {
   meta: FlowMeta;
@@ -9,6 +10,8 @@ interface EditorHeaderProps {
   onPresent: () => void;
   onExport: () => void;
   onImport: () => void;
+  onNewFlow: () => void;
+  saveStatus: SaveStatus;
 }
 
 interface EditableTextProps {
@@ -91,24 +94,55 @@ function EditableText({
   );
 }
 
+function SaveStatusIndicator({ status }: { status: SaveStatus }) {
+  if (status === 'saving') {
+    return (
+      <span className="flex items-center gap-1 text-xs text-muted-foreground">
+        <Loader2 className="h-3 w-3 animate-spin" />
+        Saving...
+      </span>
+    );
+  }
+
+  if (status === 'saved') {
+    return (
+      <span className="flex items-center gap-1 text-xs text-muted-foreground">
+        <Check className="h-3 w-3 text-green-500" />
+        All changes saved
+      </span>
+    );
+  }
+
+  return (
+    <span className="text-xs text-amber-500">
+      Unsaved changes
+    </span>
+  );
+}
+
 export function EditorHeader({
   meta,
   onMetaChange,
   onPresent,
   onExport,
   onImport,
+  onNewFlow,
+  saveStatus,
 }: EditorHeaderProps) {
   return (
     <header className="flex items-center justify-between px-4 py-3 border-b border-border bg-background">
       <div className="flex-1">
-        <h1 className="text-xl font-semibold text-foreground">
-          <EditableText
-            value={meta.title}
-            onChange={(title) => onMetaChange({ title })}
-            placeholder="Untitled Flow"
-            inputClassName="text-xl font-semibold"
-          />
-        </h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-xl font-semibold text-foreground">
+            <EditableText
+              value={meta.title}
+              onChange={(title) => onMetaChange({ title })}
+              placeholder="Untitled Flow"
+              inputClassName="text-xl font-semibold"
+            />
+          </h1>
+          <SaveStatusIndicator status={saveStatus} />
+        </div>
         <p className="text-sm text-muted-foreground">
           <EditableText
             value={meta.subtitle || ''}
@@ -120,6 +154,10 @@ export function EditorHeader({
       </div>
 
       <div className="flex items-center gap-2">
+        <Button variant="outline" size="sm" onClick={onNewFlow}>
+          <FilePlus className="h-4 w-4 mr-1" />
+          New
+        </Button>
         <Button variant="outline" size="sm" onClick={onImport}>
           <Upload className="h-4 w-4 mr-1" />
           Import
