@@ -6,6 +6,7 @@ import {
   MiniMap,
   useReactFlow,
   ReactFlowProvider,
+  SelectionMode,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { nodeTypes } from './nodes';
@@ -103,6 +104,25 @@ function FlowCanvasInner({ initialConfig = sampleFlowConfig as FlowConfig }: Flo
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [editor.mode, editor.exitPresentation]);
 
+  // Handle deletion of selected nodes and edges
+  const handleNodesDelete = useCallback(
+    (deletedNodes: { id: string }[]) => {
+      deletedNodes.forEach((node) => {
+        editor.deleteNode(node.id);
+      });
+    },
+    [editor]
+  );
+
+  const handleEdgesDelete = useCallback(
+    (deletedEdges: { id: string }[]) => {
+      deletedEdges.forEach((edge) => {
+        editor.deleteEdge(edge.id);
+      });
+    },
+    [editor]
+  );
+
   // Export handler
   const handleExport = useCallback(() => {
     const config = editor.getConfig();
@@ -155,6 +175,8 @@ function FlowCanvasInner({ initialConfig = sampleFlowConfig as FlowConfig }: Flo
               onNodesChange={isPresentation ? undefined : editor.onNodesChange}
               onEdgesChange={isPresentation ? undefined : editor.onEdgesChange}
               onConnect={isPresentation ? undefined : editor.onConnect}
+              onNodesDelete={isPresentation ? undefined : handleNodesDelete}
+              onEdgesDelete={isPresentation ? undefined : handleEdgesDelete}
               onDragOver={isPresentation ? undefined : onDragOver}
               onDrop={isPresentation ? undefined : onDrop}
               nodeTypes={nodeTypes}
@@ -163,6 +185,10 @@ function FlowCanvasInner({ initialConfig = sampleFlowConfig as FlowConfig }: Flo
               nodesDraggable={!isPresentation}
               nodesConnectable={!isPresentation}
               elementsSelectable={!isPresentation}
+              selectionMode={SelectionMode.Partial}
+              selectionOnDrag={!isPresentation}
+              deleteKeyCode={['Backspace', 'Delete']}
+              multiSelectionKeyCode="Shift"
               proOptions={{ hideAttribution: false }}
             >
               <Background color="#e5e7eb" gap={20} />
