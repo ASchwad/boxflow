@@ -1,6 +1,7 @@
-import { ReactFlow, Background, Controls, MiniMap } from '@xyflow/react';
+import { ReactFlow, Background, Controls, MiniMap, type Edge } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { nodeTypes } from './nodes';
+import { edgeTypes } from './edges';
 import type { ProcessStepNodeType, HintNodeType, ImageNodeType } from './nodes';
 
 interface FlowCanvasProps {
@@ -59,6 +60,22 @@ const sampleNodes: (ProcessStepNodeType | HintNodeType | ImageNodeType)[] = [
   },
 ];
 
+// Sample edges connecting nodes
+const sampleEdges: Edge[] = [
+  {
+    id: 'e1-2',
+    source: 'step-1',
+    target: 'step-2',
+    type: 'animatedDashed',
+  },
+  {
+    id: 'e2-hint',
+    source: 'step-2',
+    target: 'hint-1',
+    type: 'animatedDashed',
+  },
+];
+
 export function FlowCanvas({ title, subtitle }: FlowCanvasProps) {
   return (
     <div className="h-screen w-full flex flex-col">
@@ -74,8 +91,9 @@ export function FlowCanvas({ title, subtitle }: FlowCanvasProps) {
       <div className="flex-1 relative">
         <ReactFlow
           nodes={sampleNodes}
-          edges={[]}
+          edges={sampleEdges}
           nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
           fitView
           proOptions={{ hideAttribution: false }}
         >
