@@ -1,7 +1,7 @@
 import { ReactFlow, Background, Controls, MiniMap } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { nodeTypes } from './nodes';
-import type { ProcessStepNodeType } from './nodes';
+import type { ProcessStepNodeType, HintNodeType } from './nodes';
 
 interface FlowCanvasProps {
   title: string;
@@ -9,7 +9,7 @@ interface FlowCanvasProps {
 }
 
 // Sample nodes for demonstration
-const sampleNodes: ProcessStepNodeType[] = [
+const sampleNodes: (ProcessStepNodeType | HintNodeType)[] = [
   {
     id: 'step-1',
     type: 'processStep',
@@ -26,6 +26,24 @@ const sampleNodes: ProcessStepNodeType[] = [
     data: {
       title: 'Convert to prd.json',
       description: 'Break into small user stories',
+    },
+  },
+  {
+    id: 'hint-1',
+    type: 'hint',
+    position: { x: 550, y: 220 },
+    data: {
+      content: `{
+  "id": "US-001",
+  "title": "Add priority field to database",
+  "acceptanceCriteria": [
+    "Add priority column to tasks table",
+    "Generate and run migration",
+    "Typecheck passes"
+  ],
+  "passes": false
+}`,
+      isCode: true,
     },
   },
 ];
