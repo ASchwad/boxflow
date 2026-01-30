@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useRef, type DragEvent } from 'react';
+import { useEffect, useCallback, useRef, useState, type DragEvent } from 'react';
 import {
   ReactFlow,
   Background,
@@ -7,6 +7,8 @@ import {
   useReactFlow,
   ReactFlowProvider,
   SelectionMode,
+  type Node,
+  type NodeMouseHandler,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { nodeTypes } from './nodes';
@@ -16,6 +18,7 @@ import { PresentationHeader } from './PresentationHeader';
 import { StepperControls } from './controls/StepperControls';
 import { NodePalette } from './editor/NodePalette';
 import { CanvasContextMenu } from './editor/CanvasContextMenu';
+import { NodePropertiesPanel } from './editor/NodePropertiesPanel';
 import { useFlowEditor } from '@/hooks/useFlowEditor';
 import { useFlowStepper } from '@/hooks/useFlowStepper';
 import { useKeyboardNavigation } from '@/hooks/useKeyboardNavigation';
@@ -30,6 +33,7 @@ interface FlowCanvasProps {
 function FlowCanvasInner({ initialConfig = sampleFlowConfig as FlowConfig }: FlowCanvasProps) {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const { fitView, screenToFlowPosition } = useReactFlow();
+  const [editingNode, setEditingNode] = useState<Node | null>(null);
 
   const editor = useFlowEditor({ initialConfig });
 
@@ -123,6 +127,22 @@ function FlowCanvasInner({ initialConfig = sampleFlowConfig as FlowConfig }: Flo
     [editor]
   );
 
+  // Handle node double-click for editing
+  const handleNodeDoubleClick: NodeMouseHandler = useCallback(
+    (_event, node) => {
+      setEditingNode(node);
+    },
+    []
+  );
+
+  // Handle node property changes
+  const handleNodePropertiesSave = useCallback(
+    (nodeId: string, data: Record<string, unknown>) => {
+      editor.updateNode(nodeId, data);
+    },
+    [editor]
+  );
+
   // Export handler
   const handleExport = useCallback(() => {
     const config = editor.getConfig();
@@ -177,6 +197,7 @@ function FlowCanvasInner({ initialConfig = sampleFlowConfig as FlowConfig }: Flo
               onConnect={isPresentation ? undefined : editor.onConnect}
               onNodesDelete={isPresentation ? undefined : handleNodesDelete}
               onEdgesDelete={isPresentation ? undefined : handleEdgesDelete}
+              onNodeDoubleClick={isPresentation ? undefined : handleNodeDoubleClick}
               onDragOver={isPresentation ? undefined : onDragOver}
               onDrop={isPresentation ? undefined : onDrop}
               nodeTypes={nodeTypes}
@@ -211,6 +232,15 @@ function FlowCanvasInner({ initialConfig = sampleFlowConfig as FlowConfig }: Flo
           )}
         </div>
       </div>
+
+      {/* Node Properties Panel (editor only) */}
+      {!isPresentation && (
+        <NodePropertiesPanel
+          node={editingNode}
+          onClose={() => setEditingNode(null)}
+          onSave={handleNodePropertiesSave}
+        />
+      )}
     </div>
   );
 }
