@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { Handle, Position, type NodeProps, type Node } from '@xyflow/react';
+import { ImageIcon, Loader2 } from 'lucide-react';
 
 export interface ImageNodeData extends Record<string, unknown> {
   src: string;
@@ -12,6 +14,18 @@ export type ImageNodeType = Node<ImageNodeData, 'image'>;
 
 export function ImageNode({ data }: NodeProps<ImageNodeType>) {
   const { src, alt = 'Image', caption, width = 300, height } = data;
+  const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
+
+  const handleLoad = () => {
+    setIsLoading(false);
+    setHasError(false);
+  };
+
+  const handleError = () => {
+    setIsLoading(false);
+    setHasError(true);
+  };
 
   return (
     <div className="bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
@@ -27,13 +41,36 @@ export function ImageNode({ data }: NodeProps<ImageNodeType>) {
         className="!bg-gray-400 !w-2 !h-2 !border-2 !border-white"
       />
 
-      {/* Image */}
-      <img
-        src={src}
-        alt={alt}
-        style={{ width, height: height || 'auto' }}
-        className="object-contain"
-      />
+      {/* Image container */}
+      <div
+        style={{ width, height: height || 'auto', minHeight: 80 }}
+        className="relative flex items-center justify-center bg-gray-50"
+      >
+        {/* Loading state */}
+        {isLoading && !hasError && (
+          <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
+            <Loader2 className="w-6 h-6 text-gray-400 animate-spin" />
+          </div>
+        )}
+
+        {/* Error state */}
+        {hasError && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-100 text-gray-400">
+            <ImageIcon className="w-8 h-8 mb-1" />
+            <span className="text-xs">Failed to load</span>
+          </div>
+        )}
+
+        {/* Image */}
+        <img
+          src={src}
+          alt={alt}
+          onLoad={handleLoad}
+          onError={handleError}
+          style={{ width: '100%', height: height || 'auto' }}
+          className={`object-contain ${isLoading || hasError ? 'invisible' : 'visible'}`}
+        />
+      </div>
 
       {/* Caption */}
       {caption && (

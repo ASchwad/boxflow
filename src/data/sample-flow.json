@@ -8,7 +8,7 @@
     {
       "id": "step-1",
       "type": "processStep",
-      "position": { "x": 250, "y": 100 },
+      "position": { "x": 100, "y": 50 },
       "revealAtStep": 1,
       "data": {
         "title": "You write a PRD",
@@ -18,7 +18,7 @@
     {
       "id": "step-2",
       "type": "processStep",
-      "position": { "x": 300, "y": 250 },
+      "position": { "x": 100, "y": 200 },
       "revealAtStep": 2,
       "data": {
         "title": "Convert to prd.json",
@@ -28,17 +28,17 @@
     {
       "id": "hint-1",
       "type": "hint",
-      "position": { "x": 550, "y": 220 },
+      "position": { "x": 400, "y": 160 },
       "revealAtStep": 2,
       "data": {
-        "content": "{\n  \"id\": \"US-001\",\n  \"title\": \"Add priority field to database\",\n  \"acceptanceCriteria\": [\n    \"Add priority column to tasks table\",\n    \"Generate and run migration\",\n    \"Typecheck passes\"\n  ],\n  \"passes\": false\n}",
+        "content": "{\n  \"id\": \"US-001\",\n  \"title\": \"Add priority field\",\n  \"acceptanceCriteria\": [\n    \"Add priority column\",\n    \"Run migration\",\n    \"Typecheck passes\"\n  ],\n  \"passes\": false\n}",
         "isCode": true
       }
     },
     {
       "id": "step-3",
       "type": "processStep",
-      "position": { "x": 350, "y": 400 },
+      "position": { "x": 100, "y": 350 },
       "revealAtStep": 3,
       "data": {
         "title": "Ralph picks up task",
@@ -48,19 +48,19 @@
     {
       "id": "image-1",
       "type": "image",
-      "position": { "x": 550, "y": 380 },
+      "position": { "x": 400, "y": 340 },
       "revealAtStep": 4,
       "data": {
-        "src": "https://placehold.co/200x120/e0e7ff/4f46e5?text=Terminal",
+        "src": "https://images.unsplash.com/photo-1629654297299-c8506221ca97?w=300&h=180&fit=crop",
         "alt": "Terminal output",
-        "caption": "Terminal output showing test results",
-        "width": 200
+        "caption": "Terminal showing test results",
+        "width": 220
       }
     },
     {
       "id": "step-4",
       "type": "processStep",
-      "position": { "x": 400, "y": 550 },
+      "position": { "x": 100, "y": 500 },
       "revealAtStep": 4,
       "data": {
         "title": "Tests pass",
