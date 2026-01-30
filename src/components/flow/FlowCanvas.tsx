@@ -11,126 +11,28 @@ import '@xyflow/react/dist/style.css';
 import { nodeTypes } from './nodes';
 import { edgeTypes } from './edges';
 import { StepperControls } from './controls/StepperControls';
-import { useFlowStepper, type StepperNode, type StepperEdge } from '@/hooks/useFlowStepper';
+import { useFlowStepper } from '@/hooks/useFlowStepper';
 import { useKeyboardNavigation } from '@/hooks/useKeyboardNavigation';
+import {
+  type FlowConfig,
+  configToStepperNodes,
+  configToStepperEdges,
+} from '@/types/flow';
+
+// Import sample flow configuration
+import sampleFlowConfig from '@/data/sample-flow.json';
 
 interface FlowCanvasProps {
-  title: string;
-  subtitle?: string;
+  config?: FlowConfig;
 }
 
-// Sample nodes for demonstration with step assignments
-const sampleNodes: StepperNode[] = [
-  {
-    id: 'step-1',
-    type: 'processStep',
-    position: { x: 250, y: 100 },
-    data: {
-      title: 'You write a PRD',
-      description: 'Define what you want to build',
-      revealAtStep: 1,
-    },
-  },
-  {
-    id: 'step-2',
-    type: 'processStep',
-    position: { x: 300, y: 250 },
-    data: {
-      title: 'Convert to prd.json',
-      description: 'Break into small user stories',
-      revealAtStep: 2,
-    },
-  },
-  {
-    id: 'hint-1',
-    type: 'hint',
-    position: { x: 550, y: 220 },
-    data: {
-      content: `{
-  "id": "US-001",
-  "title": "Add priority field to database",
-  "acceptanceCriteria": [
-    "Add priority column to tasks table",
-    "Generate and run migration",
-    "Typecheck passes"
-  ],
-  "passes": false
-}`,
-      isCode: true,
-      revealAtStep: 2,
-    },
-  },
-  {
-    id: 'step-3',
-    type: 'processStep',
-    position: { x: 350, y: 400 },
-    data: {
-      title: 'Ralph picks up task',
-      description: 'AI agent starts working',
-      revealAtStep: 3,
-    },
-  },
-  {
-    id: 'image-1',
-    type: 'image',
-    position: { x: 550, y: 380 },
-    data: {
-      src: 'https://placehold.co/200x120/e0e7ff/4f46e5?text=Terminal',
-      alt: 'Terminal output',
-      caption: 'Terminal output showing test results',
-      width: 200,
-      revealAtStep: 4,
-    },
-  },
-  {
-    id: 'step-4',
-    type: 'processStep',
-    position: { x: 400, y: 550 },
-    data: {
-      title: 'Tests pass',
-      description: 'All acceptance criteria met',
-      revealAtStep: 4,
-    },
-  },
-];
-
-// Sample edges connecting nodes
-const sampleEdges: StepperEdge[] = [
-  {
-    id: 'e1-2',
-    source: 'step-1',
-    target: 'step-2',
-    type: 'animatedDashed',
-  },
-  {
-    id: 'e2-hint',
-    source: 'step-2',
-    target: 'hint-1',
-    type: 'animatedDashed',
-  },
-  {
-    id: 'e2-3',
-    source: 'step-2',
-    target: 'step-3',
-    type: 'animatedDashed',
-  },
-  {
-    id: 'e3-4',
-    source: 'step-3',
-    target: 'step-4',
-    type: 'animatedDashed',
-  },
-  {
-    id: 'e3-img',
-    source: 'step-3',
-    target: 'image-1',
-    type: 'animatedDashed',
-  },
-];
-
 // Inner component that uses useReactFlow hook
-function FlowCanvasInner({ title, subtitle }: FlowCanvasProps) {
+function FlowCanvasInner({ config = sampleFlowConfig as FlowConfig }: FlowCanvasProps) {
   const { fitView } = useReactFlow();
+
+  // Convert config to stepper format
+  const nodes = configToStepperNodes(config.nodes);
+  const edges = configToStepperEdges(config.edges);
 
   const {
     currentStep,
@@ -143,19 +45,21 @@ function FlowCanvasInner({ title, subtitle }: FlowCanvasProps) {
     goToEnd,
     isFirstStep,
     isLastStep,
-  } = useFlowStepper({ nodes: sampleNodes, edges: sampleEdges });
+  } = useFlowStepper({ nodes, edges });
 
   // Auto-focus on visible nodes when step changes
   const focusOnVisibleNodes = useCallback(() => {
-    // Small delay to let the nodes render
-    setTimeout(() => {
-      fitView({
-        padding: 0.2,
-        duration: 300,
-        nodes: visibleNodes,
-      });
-    }, 50);
-  }, [fitView, visibleNodes]);
+    if (config.settings?.autoFocus !== false) {
+      // Small delay to let the nodes render
+      setTimeout(() => {
+        fitView({
+          padding: 0.2,
+          duration: config.settings?.animationDuration ?? 300,
+          nodes: visibleNodes,
+        });
+      }, 50);
+    }
+  }, [fitView, visibleNodes, config.settings]);
 
   // Focus whenever the current step changes
   useEffect(() => {
@@ -174,9 +78,9 @@ function FlowCanvasInner({ title, subtitle }: FlowCanvasProps) {
     <div className="h-screen w-full flex flex-col">
       {/* Header */}
       <header className="text-center py-6 border-b border-border bg-background">
-        <h1 className="text-2xl font-semibold text-foreground">{title}</h1>
-        {subtitle && (
-          <p className="text-sm text-muted-foreground mt-1">{subtitle}</p>
+        <h1 className="text-2xl font-semibold text-foreground">{config.meta.title}</h1>
+        {config.meta.subtitle && (
+          <p className="text-sm text-muted-foreground mt-1">{config.meta.subtitle}</p>
         )}
       </header>
 

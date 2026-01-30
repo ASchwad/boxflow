@@ -1,12 +1,9 @@
 import { FlowCanvas } from '@/components/flow/FlowCanvas';
 
 function App() {
-  return (
-    <FlowCanvas
-      title="How Ralph Works with Amp"
-      subtitle="Autonomous AI agent loop for completing PRDs"
-    />
-  );
+  // FlowCanvas loads from sample-flow.json by default
+  // You can also pass a custom config prop: <FlowCanvas config={myConfig} />
+  return <FlowCanvas />;
 }
 
 export default App;
