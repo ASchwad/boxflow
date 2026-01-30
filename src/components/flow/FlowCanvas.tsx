@@ -1,4 +1,12 @@
-import { ReactFlow, Background, Controls, MiniMap } from '@xyflow/react';
+import { useEffect, useCallback } from 'react';
+import {
+  ReactFlow,
+  Background,
+  Controls,
+  MiniMap,
+  useReactFlow,
+  ReactFlowProvider,
+} from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { nodeTypes } from './nodes';
 import { edgeTypes } from './edges';
@@ -120,7 +128,10 @@ const sampleEdges: StepperEdge[] = [
   },
 ];
 
-export function FlowCanvas({ title, subtitle }: FlowCanvasProps) {
+// Inner component that uses useReactFlow hook
+function FlowCanvasInner({ title, subtitle }: FlowCanvasProps) {
+  const { fitView } = useReactFlow();
+
   const {
     currentStep,
     totalSteps,
@@ -133,6 +144,23 @@ export function FlowCanvas({ title, subtitle }: FlowCanvasProps) {
     isFirstStep,
     isLastStep,
   } = useFlowStepper({ nodes: sampleNodes, edges: sampleEdges });
+
+  // Auto-focus on visible nodes when step changes
+  const focusOnVisibleNodes = useCallback(() => {
+    // Small delay to let the nodes render
+    setTimeout(() => {
+      fitView({
+        padding: 0.2,
+        duration: 300,
+        nodes: visibleNodes,
+      });
+    }, 50);
+  }, [fitView, visibleNodes]);
+
+  // Focus whenever the current step changes
+  useEffect(() => {
+    focusOnVisibleNodes();
+  }, [currentStep, focusOnVisibleNodes]);
 
   // Enable keyboard navigation
   useKeyboardNavigation({
@@ -179,5 +207,14 @@ export function FlowCanvas({ title, subtitle }: FlowCanvasProps) {
         />
       </div>
     </div>
+  );
+}
+
+// Wrapper component with ReactFlowProvider
+export function FlowCanvas(props: FlowCanvasProps) {
+  return (
+    <ReactFlowProvider>
+      <FlowCanvasInner {...props} />
+    </ReactFlowProvider>
   );
 }
