@@ -4,6 +4,7 @@ import { nodeTypes } from './nodes';
 import { edgeTypes } from './edges';
 import { StepperControls } from './controls/StepperControls';
 import { useFlowStepper, type StepperNode, type StepperEdge } from '@/hooks/useFlowStepper';
+import { useKeyboardNavigation } from '@/hooks/useKeyboardNavigation';
 
 interface FlowCanvasProps {
   title: string;
@@ -128,9 +129,18 @@ export function FlowCanvas({ title, subtitle }: FlowCanvasProps) {
     next,
     previous,
     reset,
+    goToEnd,
     isFirstStep,
     isLastStep,
   } = useFlowStepper({ nodes: sampleNodes, edges: sampleEdges });
+
+  // Enable keyboard navigation
+  useKeyboardNavigation({
+    onNext: next,
+    onPrevious: previous,
+    onReset: reset,
+    onGoToEnd: goToEnd,
+  });
 
   return (
     <div className="h-screen w-full flex flex-col">

@@ -27,6 +27,7 @@ interface UseFlowStepperReturn {
   previous: () => void;
   reset: () => void;
   goToStep: (step: number) => void;
+  goToEnd: () => void;
   isFirstStep: boolean;
   isLastStep: boolean;
 }
@@ -95,6 +96,10 @@ export function useFlowStepper({
     [totalSteps]
   );
 
+  const goToEnd = useCallback(() => {
+    setCurrentStep(totalSteps);
+  }, [totalSteps]);
+
   return {
     currentStep,
     totalSteps,
@@ -104,6 +109,7 @@ export function useFlowStepper({
     previous,
     reset,
     goToStep,
+    goToEnd,
     isFirstStep: currentStep === 1,
     isLastStep: currentStep === totalSteps,
   };
