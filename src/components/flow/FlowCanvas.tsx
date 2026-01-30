@@ -14,6 +14,7 @@ import { EditorHeader } from './EditorHeader';
 import { PresentationHeader } from './PresentationHeader';
 import { StepperControls } from './controls/StepperControls';
 import { NodePalette } from './editor/NodePalette';
+import { CanvasContextMenu } from './editor/CanvasContextMenu';
 import { useFlowEditor } from '@/hooks/useFlowEditor';
 import { useFlowStepper } from '@/hooks/useFlowStepper';
 import { useKeyboardNavigation } from '@/hooks/useKeyboardNavigation';
@@ -143,26 +144,32 @@ function FlowCanvasInner({ initialConfig = sampleFlowConfig as FlowConfig }: Flo
 
         {/* Main canvas area */}
         <div className="flex-1 relative" ref={reactFlowWrapper}>
-          <ReactFlow
-            nodes={isPresentation ? stepper.visibleNodes : editor.nodes}
-            edges={isPresentation ? stepper.visibleEdges : editor.edges}
-            onNodesChange={isPresentation ? undefined : editor.onNodesChange}
-            onEdgesChange={isPresentation ? undefined : editor.onEdgesChange}
-            onConnect={isPresentation ? undefined : editor.onConnect}
-            onDragOver={isPresentation ? undefined : onDragOver}
-            onDrop={isPresentation ? undefined : onDrop}
-            nodeTypes={nodeTypes}
-            edgeTypes={edgeTypes}
-            fitView
-            nodesDraggable={!isPresentation}
-            nodesConnectable={!isPresentation}
-            elementsSelectable={!isPresentation}
-            proOptions={{ hideAttribution: false }}
+          <CanvasContextMenu
+            onAddNode={editor.addNode}
+            screenToFlowPosition={screenToFlowPosition}
+            disabled={isPresentation}
           >
-            <Background color="#e5e7eb" gap={20} />
-            <Controls position="bottom-left" />
-            {!isPresentation && <MiniMap position="bottom-right" />}
-          </ReactFlow>
+            <ReactFlow
+              nodes={isPresentation ? stepper.visibleNodes : editor.nodes}
+              edges={isPresentation ? stepper.visibleEdges : editor.edges}
+              onNodesChange={isPresentation ? undefined : editor.onNodesChange}
+              onEdgesChange={isPresentation ? undefined : editor.onEdgesChange}
+              onConnect={isPresentation ? undefined : editor.onConnect}
+              onDragOver={isPresentation ? undefined : onDragOver}
+              onDrop={isPresentation ? undefined : onDrop}
+              nodeTypes={nodeTypes}
+              edgeTypes={edgeTypes}
+              fitView
+              nodesDraggable={!isPresentation}
+              nodesConnectable={!isPresentation}
+              elementsSelectable={!isPresentation}
+              proOptions={{ hideAttribution: false }}
+            >
+              <Background color="#e5e7eb" gap={20} />
+              <Controls position="bottom-left" />
+              {!isPresentation && <MiniMap position="bottom-right" />}
+            </ReactFlow>
+          </CanvasContextMenu>
 
           {/* Stepper Controls (presentation only) */}
           {isPresentation && (
