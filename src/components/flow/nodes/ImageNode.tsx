@@ -31,9 +31,10 @@ export function ImageNode({ id, data }: NodeProps<ImageNodeType>) {
   };
 
   return (
-    <div className="relative bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
+    <div className="relative bg-white border border-gray-200 rounded-lg shadow-sm">
       {/* Step Badge (hidden in presentation mode via CSS) */}
       <StepBadge step={step} nodeId={id} />
+
       {/* Connection handles - with IDs for edge configuration */}
       <Handle
         type="target"
@@ -51,7 +52,7 @@ export function ImageNode({ id, data }: NodeProps<ImageNodeType>) {
       {/* Image container */}
       <div
         style={{ width, height: height || 'auto', minHeight: 80 }}
-        className="relative flex items-center justify-center bg-gray-50"
+        className="relative flex items-center justify-center bg-gray-50 rounded-t-lg overflow-hidden"
       >
         {/* Loading state */}
         {isLoading && !hasError && (
@@ -81,7 +82,7 @@ export function ImageNode({ id, data }: NodeProps<ImageNodeType>) {
 
       {/* Caption */}
       {caption && (
-        <div className="px-3 py-2 border-t border-gray-100 bg-gray-50">
+        <div className="px-3 py-2 border-t border-gray-100 bg-gray-50 rounded-b-lg">
           <p className="text-xs text-gray-600 text-center">{caption}</p>
         </div>
       )}

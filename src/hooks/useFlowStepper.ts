@@ -40,7 +40,7 @@ export function useFlowStepper({
   // Calculate total steps from nodes
   const totalSteps = useMemo(() => {
     const maxStep = nodes.reduce((max, node) => {
-      const step = node.data?.revealAtStep ?? 1;
+      const step = (node.data?.revealAtStep as number | undefined) ?? 1;
       return Math.max(max, step);
     }, 1);
     return maxStep;
@@ -54,7 +54,7 @@ export function useFlowStepper({
     const newlyVisible: string[] = [];
 
     nodes.forEach((node) => {
-      const revealAt = node.data?.revealAtStep ?? 1;
+      const revealAt = (node.data?.revealAtStep as number | undefined) ?? 1;
       if (revealAt <= currentStep) {
         visible.push({
           ...node,
@@ -78,7 +78,7 @@ export function useFlowStepper({
     // Build set of visible node IDs directly from nodes (source of truth)
     const visibleNodeIds = new Set<string>();
     nodes.forEach((node) => {
-      const revealAt = node.data?.revealAtStep ?? 1;
+      const revealAt = (node.data?.revealAtStep as number | undefined) ?? 1;
       if (revealAt <= currentStep) {
         visibleNodeIds.add(node.id);
       }
@@ -94,7 +94,7 @@ export function useFlowStepper({
       }
 
       // If edge has explicit revealAtStep, also check that
-      const edgeRevealAt = edge.data?.revealAtStep;
+      const edgeRevealAt = edge.data?.revealAtStep as number | undefined;
       if (edgeRevealAt !== undefined) {
         return edgeRevealAt <= currentStep;
       }
