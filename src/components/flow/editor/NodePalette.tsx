@@ -33,7 +33,7 @@ export function NodePalette({ onAddNode }: NodePaletteProps) {
     event.dataTransfer.effectAllowed = 'move';
   };
 
-  const handleClick = (event: MouseEvent, nodeType: string) => {
+  const handleClick = (_event: MouseEvent, nodeType: string) => {
     // Prevent triggering drag on click
     if (onAddNode) {
       onAddNode(nodeType);

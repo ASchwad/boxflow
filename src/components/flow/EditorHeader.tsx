@@ -6,10 +6,16 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
 } from '@/components/ui/dropdown-menu';
-import { Play, Download, Upload, Pencil, FilePlus, Check, Loader2, MoreHorizontal, ListOrdered } from 'lucide-react';
+import { Play, Download, Upload, Pencil, FilePlus, Check, Loader2, MoreHorizontal, ListOrdered, Settings2 } from 'lucide-react';
 import type { FlowMeta } from '@/types/flow';
 import type { SaveStatus } from '@/hooks/useAutoSave';
+import type { StepAssignmentMode } from '@/hooks/useFlowEditor';
 
 interface EditorHeaderProps {
   meta: FlowMeta;
@@ -20,6 +26,8 @@ interface EditorHeaderProps {
   onNewFlow: () => void;
   onNormalizeSteps: () => void;
   saveStatus: SaveStatus;
+  stepAssignmentMode: StepAssignmentMode;
+  onStepAssignmentModeChange: (mode: StepAssignmentMode) => void;
 }
 
 interface EditableTextProps {
@@ -128,6 +136,12 @@ function SaveStatusIndicator({ status }: { status: SaveStatus }) {
   );
 }
 
+const stepModeLabels: Record<StepAssignmentMode, string> = {
+  'auto-increment': 'Auto-increment (next step)',
+  'same-as-last': 'Same as last added',
+  'always-1': 'Always Step 1',
+};
+
 export function EditorHeader({
   meta,
   onMetaChange,
@@ -137,6 +151,8 @@ export function EditorHeader({
   onNewFlow,
   onNormalizeSteps,
   saveStatus,
+  stepAssignmentMode,
+  onStepAssignmentModeChange,
 }: EditorHeaderProps) {
   return (
     <header className="flex items-center justify-between px-4 py-3 border-b border-border bg-background">
@@ -188,6 +204,29 @@ export function EditorHeader({
               <ListOrdered className="h-4 w-4 mr-2" />
               Normalize Steps
             </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <Settings2 className="h-4 w-4 mr-2" />
+                New Node Step
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent>
+                <DropdownMenuRadioGroup
+                  value={stepAssignmentMode}
+                  onValueChange={(value) => onStepAssignmentModeChange(value as StepAssignmentMode)}
+                >
+                  <DropdownMenuRadioItem value="auto-increment">
+                    {stepModeLabels['auto-increment']}
+                  </DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="same-as-last">
+                    {stepModeLabels['same-as-last']}
+                  </DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="always-1">
+                    {stepModeLabels['always-1']}
+                  </DropdownMenuRadioItem>
+                </DropdownMenuRadioGroup>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
           </DropdownMenuContent>
         </DropdownMenu>
 

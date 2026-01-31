@@ -1,6 +1,10 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useNodesState, useEdgesState, type Node, type Edge } from '@xyflow/react';
 import type { FlowConfig, FlowMeta } from '@/types/flow';
+
+export type StepAssignmentMode = 'auto-increment' | 'same-as-last' | 'always-1';
+
+const STEP_MODE_STORAGE_KEY = 'flow-editor-step-mode';
 
 interface UseFlowEditorOptions {
   initialConfig: FlowConfig;
@@ -39,6 +43,8 @@ interface UseFlowEditorReturn {
 
   // Step operations
   normalizeSteps: () => { oldMax: number; newMax: number };
+  stepAssignmentMode: StepAssignmentMode;
+  setStepAssignmentMode: (mode: StepAssignmentMode) => void;
 
   // Config operations
   getConfig: () => FlowConfig;
@@ -48,6 +54,27 @@ interface UseFlowEditorReturn {
 export function useFlowEditor({ initialConfig }: UseFlowEditorOptions): UseFlowEditorReturn {
   const [mode, setMode] = useState<'editor' | 'presentation'>('editor');
   const [meta, setMeta] = useState<FlowMeta>(initialConfig.meta);
+
+  // Step assignment mode with localStorage persistence
+  const [stepAssignmentMode, setStepAssignmentModeState] = useState<StepAssignmentMode>(() => {
+    try {
+      const stored = localStorage.getItem(STEP_MODE_STORAGE_KEY);
+      if (stored && ['auto-increment', 'same-as-last', 'always-1'].includes(stored)) {
+        return stored as StepAssignmentMode;
+      }
+    } catch {}
+    return 'auto-increment';
+  });
+
+  // Track last added step for "same-as-last" mode
+  const lastAddedStepRef = useRef<number>(1);
+
+  const setStepAssignmentMode = useCallback((newMode: StepAssignmentMode) => {
+    setStepAssignmentModeState(newMode);
+    try {
+      localStorage.setItem(STEP_MODE_STORAGE_KEY, newMode);
+    } catch {}
+  }, []);
 
   // Convert config nodes to React Flow format
   const initialNodes: Node[] = initialConfig.nodes.map((node) => ({
@@ -87,14 +114,26 @@ export function useFlowEditor({ initialConfig }: UseFlowEditorOptions): UseFlowE
       const id = `${type}-${Date.now()}`;
 
       setNodes((nds) => {
-        // Calculate maxStep from current state inside callback to avoid stale closure
-        const maxStep = nds.length === 0
-          ? 0
-          : nds.reduce((max, node) => {
-              const step = (node.data?.revealAtStep as number) ?? 1;
-              return Math.max(max, step);
-            }, 1);
-        const newStep = maxStep === 0 ? 1 : maxStep + 1;
+        // Calculate step based on assignment mode
+        let newStep: number;
+
+        if (stepAssignmentMode === 'always-1') {
+          newStep = 1;
+        } else if (stepAssignmentMode === 'same-as-last') {
+          newStep = lastAddedStepRef.current;
+        } else {
+          // 'auto-increment' (default)
+          const maxStep = nds.length === 0
+            ? 0
+            : nds.reduce((max, node) => {
+                const step = (node.data?.revealAtStep as number) ?? 1;
+                return Math.max(max, step);
+              }, 1);
+          newStep = maxStep === 0 ? 1 : maxStep + 1;
+        }
+
+        // Track this step for "same-as-last" mode
+        lastAddedStepRef.current = newStep;
 
         let data: any = { revealAtStep: newStep };
         switch (type) {
@@ -119,7 +158,7 @@ export function useFlowEditor({ initialConfig }: UseFlowEditorOptions): UseFlowE
         return [...nds, newNode];
       });
     },
-    [setNodes]
+    [setNodes, stepAssignmentMode]
   );
 
   const updateNode = useCallback(
@@ -274,6 +313,8 @@ export function useFlowEditor({ initialConfig }: UseFlowEditorOptions): UseFlowE
     deleteEdge,
     getMaxStep,
     normalizeSteps,
+    stepAssignmentMode,
+    setStepAssignmentMode,
     getConfig,
     loadConfig,
   };

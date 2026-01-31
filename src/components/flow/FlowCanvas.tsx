@@ -9,6 +9,7 @@ import {
   SelectionMode,
   type Node,
   type NodeMouseHandler,
+  type OnSelectionChangeFunc,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { nodeTypes } from './nodes';
@@ -18,7 +19,9 @@ import { PresentationHeader } from './PresentationHeader';
 import { StepperControls } from './controls/StepperControls';
 import { NodePalette } from './editor/NodePalette';
 import { CanvasContextMenu } from './editor/CanvasContextMenu';
+import { NodeContextMenu } from './editor/NodeContextMenu';
 import { NodePropertiesPanel } from './editor/NodePropertiesPanel';
+import { KeyboardShortcutsHelp } from './KeyboardShortcutsHelp';
 import { useFlowEditor } from '@/hooks/useFlowEditor';
 import { useFlowStepper } from '@/hooks/useFlowStepper';
 import { useKeyboardNavigation } from '@/hooks/useKeyboardNavigation';
@@ -29,20 +32,6 @@ import { toast } from 'sonner';
 
 import sampleFlowConfig from '@/data/sample-flow.json';
 
-const emptyFlowConfig: FlowConfig = {
-  meta: {
-    title: 'Untitled Flow',
-    subtitle: '',
-    version: '1.0',
-  },
-  nodes: [],
-  edges: [],
-  settings: {
-    autoFocus: true,
-    animationDuration: 300,
-  },
-};
-
 interface FlowCanvasProps {
   initialConfig?: FlowConfig;
 }
@@ -51,6 +40,8 @@ function FlowCanvasInner({ initialConfig = sampleFlowConfig as FlowConfig }: Flo
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const { fitView, screenToFlowPosition, getViewport } = useReactFlow();
   const [editingNode, setEditingNode] = useState<Node | null>(null);
+  const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
+  const [showKeyboardHelp, setShowKeyboardHelp] = useState(false);
 
   const editor = useFlowEditor({ initialConfig });
 
@@ -168,16 +159,33 @@ function FlowCanvasInner({ initialConfig = sampleFlowConfig as FlowConfig }: Flo
     enabled: editor.mode === 'presentation',
   });
 
-  // Escape to exit presentation
+  // Global keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && editor.mode === 'presentation') {
-        editor.exitPresentation();
+      // Don't trigger shortcuts when typing in inputs
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+
+      // "?" key shows keyboard shortcuts help
+      if (e.key === '?' || (e.shiftKey && e.key === '/')) {
+        e.preventDefault();
+        setShowKeyboardHelp(prev => !prev);
+        return;
+      }
+
+      // Escape to exit presentation or close help
+      if (e.key === 'Escape') {
+        if (showKeyboardHelp) {
+          setShowKeyboardHelp(false);
+        } else if (editor.mode === 'presentation') {
+          editor.exitPresentation();
+        }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [editor.mode, editor.exitPresentation]);
+  }, [editor.mode, editor.exitPresentation, showKeyboardHelp]);
 
   // Handle deletion of selected nodes and edges
   const handleNodesDelete = useCallback(
@@ -218,6 +226,32 @@ function FlowCanvasInner({ initialConfig = sampleFlowConfig as FlowConfig }: Flo
   const handleUpdateNodeStep = useCallback(
     (nodeId: string, step: number) => {
       editor.updateNode(nodeId, { revealAtStep: step });
+    },
+    [editor]
+  );
+
+  // Handle selection changes (for batch operations)
+  const handleSelectionChange: OnSelectionChangeFunc = useCallback(({ nodes }) => {
+    setSelectedNodeIds(nodes.map((n) => n.id));
+  }, []);
+
+  // Handle batch step assignment
+  const handleBatchSetStep = useCallback(
+    (nodeIds: string[], step: number) => {
+      nodeIds.forEach((nodeId) => {
+        editor.updateNode(nodeId, { revealAtStep: step });
+      });
+    },
+    [editor]
+  );
+
+  // Handle batch delete nodes
+  const handleBatchDeleteNodes = useCallback(
+    (nodeIds: string[]) => {
+      nodeIds.forEach((nodeId) => {
+        editor.deleteNode(nodeId);
+      });
+      setSelectedNodeIds([]);
     },
     [editor]
   );
@@ -330,6 +364,8 @@ function FlowCanvasInner({ initialConfig = sampleFlowConfig as FlowConfig }: Flo
           onNewFlow={handleNewFlow}
           onNormalizeSteps={handleNormalizeSteps}
           saveStatus={autoSave.status}
+          stepAssignmentMode={editor.stepAssignmentMode}
+          onStepAssignmentModeChange={editor.setStepAssignmentMode}
         />
       )}
 
@@ -344,39 +380,48 @@ function FlowCanvasInner({ initialConfig = sampleFlowConfig as FlowConfig }: Flo
             updateNodeStep={handleUpdateNodeStep}
             isEditorMode={!isPresentation}
           >
-            <CanvasContextMenu
-              onAddNode={handleContextMenuAdd}
-              screenToFlowPosition={screenToFlowPosition}
+            <NodeContextMenu
+              selectedNodeIds={selectedNodeIds}
+              maxStep={editor.getMaxStep()}
+              onSetStep={handleBatchSetStep}
+              onDeleteNodes={handleBatchDeleteNodes}
               disabled={isPresentation}
             >
-              <ReactFlow
-              nodes={isPresentation ? stepper.visibleNodes : editor.nodes}
-              edges={isPresentation ? stepper.visibleEdges : editor.edges}
-              onNodesChange={isPresentation ? undefined : editor.onNodesChange}
-              onEdgesChange={isPresentation ? undefined : editor.onEdgesChange}
-              onConnect={isPresentation ? undefined : editor.onConnect}
-              onNodesDelete={isPresentation ? undefined : handleNodesDelete}
-              onEdgesDelete={isPresentation ? undefined : handleEdgesDelete}
-              onNodeDoubleClick={isPresentation ? undefined : handleNodeDoubleClick}
-              onDragOver={isPresentation ? undefined : onDragOver}
-              onDrop={isPresentation ? undefined : onDrop}
-              nodeTypes={nodeTypes}
-              edgeTypes={edgeTypes}
-              fitView
-              nodesDraggable={!isPresentation}
-              nodesConnectable={!isPresentation}
-              elementsSelectable={!isPresentation}
-              selectionMode={SelectionMode.Partial}
-              selectionOnDrag={!isPresentation}
-              deleteKeyCode={['Backspace', 'Delete']}
-              multiSelectionKeyCode="Shift"
-              proOptions={{ hideAttribution: false }}
-            >
-              <Background color="#e5e7eb" gap={20} />
-              <Controls position="bottom-left" />
-              {!isPresentation && <MiniMap position="bottom-right" />}
-            </ReactFlow>
-            </CanvasContextMenu>
+              <CanvasContextMenu
+                onAddNode={handleContextMenuAdd}
+                screenToFlowPosition={screenToFlowPosition}
+                disabled={isPresentation}
+              >
+                <ReactFlow
+                  nodes={isPresentation ? stepper.visibleNodes : editor.nodes}
+                  edges={isPresentation ? stepper.visibleEdges : editor.edges}
+                  onNodesChange={isPresentation ? undefined : editor.onNodesChange}
+                  onEdgesChange={isPresentation ? undefined : editor.onEdgesChange}
+                  onConnect={isPresentation ? undefined : editor.onConnect}
+                  onNodesDelete={isPresentation ? undefined : handleNodesDelete}
+                  onEdgesDelete={isPresentation ? undefined : handleEdgesDelete}
+                  onNodeDoubleClick={isPresentation ? undefined : handleNodeDoubleClick}
+                  onDragOver={isPresentation ? undefined : onDragOver}
+                  onDrop={isPresentation ? undefined : onDrop}
+                  nodeTypes={nodeTypes}
+                  edgeTypes={edgeTypes}
+                  fitView
+                  nodesDraggable={!isPresentation}
+                  nodesConnectable={!isPresentation}
+                  elementsSelectable={!isPresentation}
+                  selectionMode={SelectionMode.Partial}
+                  selectionOnDrag={!isPresentation}
+                  deleteKeyCode={['Backspace', 'Delete']}
+                  multiSelectionKeyCode="Shift"
+                  onSelectionChange={isPresentation ? undefined : handleSelectionChange}
+                  proOptions={{ hideAttribution: false }}
+                >
+                  <Background color="#e5e7eb" gap={20} />
+                  <Controls position="bottom-left" />
+                  {!isPresentation && <MiniMap position="bottom-right" />}
+                </ReactFlow>
+              </CanvasContextMenu>
+            </NodeContextMenu>
           </FlowEditorProvider>
 
           {/* Stepper Controls (presentation only) */}
@@ -403,6 +448,13 @@ function FlowCanvasInner({ initialConfig = sampleFlowConfig as FlowConfig }: Flo
           onSave={handleNodePropertiesSave}
         />
       )}
+
+      {/* Keyboard Shortcuts Help */}
+      <KeyboardShortcutsHelp
+        open={showKeyboardHelp}
+        onOpenChange={setShowKeyboardHelp}
+        mode={editor.mode}
+      />
     </div>
   );
 }

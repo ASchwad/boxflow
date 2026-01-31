@@ -1,5 +1,6 @@
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, RotateCcw } from 'lucide-react';
+import { ChevronLeft, ChevronRight, RotateCcw, Clock } from 'lucide-react';
 
 interface StepperControlsProps {
   currentStep: number;
@@ -12,6 +13,12 @@ interface StepperControlsProps {
   isLastStep: boolean;
 }
 
+function formatTime(seconds: number): string {
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+}
+
 export function StepperControls({
   currentStep,
   totalSteps,
@@ -22,6 +29,17 @@ export function StepperControls({
   isFirstStep,
   isLastStep,
 }: StepperControlsProps) {
+  // Presentation timer
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setElapsedSeconds((s) => s + 1);
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
+
   // Generate array of step numbers
   const steps = Array.from({ length: totalSteps }, (_, i) => i + 1);
 
@@ -91,6 +109,12 @@ export function StepperControls({
         >
           <RotateCcw className="h-4 w-4" />
         </Button>
+
+        {/* Timer */}
+        <div className="flex items-center gap-1 text-xs text-gray-500 ml-2 pl-2 border-l border-gray-200">
+          <Clock className="h-3 w-3" />
+          <span className="font-mono">{formatTime(elapsedSeconds)}</span>
+        </div>
       </div>
     </div>
   );
