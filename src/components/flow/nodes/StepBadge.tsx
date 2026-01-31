@@ -1,12 +1,16 @@
-import { useState, useEffect, type MouseEvent } from 'react';
+import { useState, useEffect, useMemo, type MouseEvent } from 'react';
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { ChevronUp, ChevronDown } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useFlowEditorContext } from '@/contexts/FlowEditorContext';
 
 interface StepBadgeProps {
@@ -18,7 +22,7 @@ interface StepBadgeProps {
 export function StepBadge({ step, nodeId, className = '' }: StepBadgeProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [localStep, setLocalStep] = useState(step);
-  const { updateNodeStep, isEditorMode } = useFlowEditorContext();
+  const { updateNodeStep, isEditorMode, maxStep } = useFlowEditorContext();
 
   // Sync local step with prop when it changes
   useEffect(() => {
@@ -29,6 +33,12 @@ export function StepBadge({ step, nodeId, className = '' }: StepBadgeProps) {
   const hue = 220 + (step - 1) * 20; // Start at blue (220), shift toward purple
   const saturation = 70;
   const lightness = 50;
+
+  // Generate valid step options: 1 to maxStep+1 (to allow creating next step)
+  const stepOptions = useMemo(() => {
+    const max = Math.max(maxStep, 1);
+    return Array.from({ length: max + 1 }, (_, i) => i + 1);
+  }, [maxStep]);
 
   const handleStepChange = (newStep: number) => {
     const validStep = Math.max(1, newStep);
@@ -73,37 +83,27 @@ export function StepBadge({ step, nodeId, className = '' }: StepBadgeProps) {
       <PopoverTrigger asChild>
         {badgeContent}
       </PopoverTrigger>
-      <PopoverContent className="w-32 p-2" align="end" side="top">
+      <PopoverContent className="w-36 p-2" align="end" side="top">
         <div className="flex flex-col gap-2">
           <p className="text-xs font-medium text-muted-foreground text-center">
             Reveal at Step
           </p>
-          <div className="flex items-center gap-1">
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-7 w-7"
-              onClick={() => handleStepChange(localStep - 1)}
-              disabled={localStep <= 1}
-            >
-              <ChevronDown className="h-3 w-3" />
-            </Button>
-            <Input
-              type="number"
-              min={1}
-              value={localStep}
-              onChange={(e) => handleStepChange(parseInt(e.target.value) || 1)}
-              className="h-7 w-12 text-center text-sm px-1"
-            />
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-7 w-7"
-              onClick={() => handleStepChange(localStep + 1)}
-            >
-              <ChevronUp className="h-3 w-3" />
-            </Button>
-          </div>
+          <Select
+            value={localStep.toString()}
+            onValueChange={(value) => handleStepChange(parseInt(value))}
+          >
+            <SelectTrigger className="h-8">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {stepOptions.map((stepNum) => (
+                <SelectItem key={stepNum} value={stepNum.toString()}>
+                  Step {stepNum}
+                  {stepNum === maxStep + 1 && ' (new)'}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </PopoverContent>
     </Popover>
