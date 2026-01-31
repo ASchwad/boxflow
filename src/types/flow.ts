@@ -41,12 +41,26 @@ export interface ImageNodeConfig extends FlowNodeBase {
 
 export type FlowNodeConfig = ProcessStepNodeConfig | HintNodeConfig | ImageNodeConfig;
 
+export type HandlePosition = 'top' | 'bottom' | 'left' | 'right';
+export type MarkerType = 'none' | 'arrow' | 'arrowClosed';
+export type LineStyle = 'solid' | 'dashed' | 'dotted';
+export type EdgeAnimation = 'none' | 'flow';
+
 export interface FlowEdgeConfig {
   id: string;
   source: string;
   target: string;
-  type?: 'animatedDashed' | 'default';
+  sourceHandle?: HandlePosition;
+  targetHandle?: HandlePosition;
+  type?: 'animatedDashed' | 'default' | 'custom';
   revealAtStep?: number;
+  // Edge styling options
+  markerStart?: MarkerType;
+  markerEnd?: MarkerType;
+  lineStyle?: LineStyle;
+  animation?: EdgeAnimation;
+  strokeColor?: string;
+  strokeWidth?: number;
 }
 
 export interface FlowSettings {
@@ -80,6 +94,8 @@ export function configToStepperEdges(edges: FlowEdgeConfig[]) {
     id: edge.id,
     source: edge.source,
     target: edge.target,
+    sourceHandle: edge.sourceHandle || 'bottom',
+    targetHandle: edge.targetHandle || 'top',
     type: edge.type || 'animatedDashed',
     data: edge.revealAtStep ? { revealAtStep: edge.revealAtStep } : undefined,
   }));
