@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import type { Edge } from '@xyflow/react';
 import {
   Select,
@@ -7,9 +7,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { Minus, X } from 'lucide-react';
 import type { MarkerType, LineStyle, EdgeAnimation, HandlePosition } from '@/types/flow';
 
@@ -17,6 +17,7 @@ interface EdgePropertiesPanelProps {
   edge: Edge | null;
   onClose: () => void;
   onSave: (edgeId: string, data: Record<string, unknown>) => void;
+  isEditorMode?: boolean;
 }
 
 const PANEL_WIDTH = 280;
@@ -65,17 +66,20 @@ export function EdgePropertiesPanel({
   edge,
   onClose,
   onSave,
+  isEditorMode = true,
 }: EdgePropertiesPanelProps) {
   const [formData, setFormData] = useState<Record<string, unknown>>({});
+  const edgeIdRef = useRef<string | null>(null);
 
   // Reset form data when edge changes
   useEffect(() => {
     if (edge) {
+      edgeIdRef.current = edge.id;
       setFormData({
         sourceHandle: edge.sourceHandle || 'bottom',
         targetHandle: edge.targetHandle || 'top',
         markerStart: edge.data?.markerStart || 'none',
-        markerEnd: edge.data?.markerEnd || 'none',
+        markerEnd: edge.data?.markerEnd || 'arrowClosed',
         lineStyle: edge.data?.lineStyle || 'dashed',
         animation: edge.data?.animation || 'flow',
         strokeColor: edge.data?.strokeColor || '#94a3b8',
@@ -83,6 +87,13 @@ export function EdgePropertiesPanel({
       });
     }
   }, [edge]);
+
+  // Close panel when exiting editor mode
+  useEffect(() => {
+    if (!isEditorMode && edge) {
+      onClose();
+    }
+  }, [isEditorMode, edge, onClose]);
 
   // Close on Escape key
   useEffect(() => {
@@ -95,16 +106,19 @@ export function EdgePropertiesPanel({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [edge, onClose]);
 
+  // Apply changes immediately when a field is updated
   const updateField = useCallback((field: string, value: unknown) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
-  }, []);
+    setFormData((prev) => {
+      const newData = { ...prev, [field]: value };
+      // Apply changes immediately
+      if (edgeIdRef.current) {
+        onSave(edgeIdRef.current, newData);
+      }
+      return newData;
+    });
+  }, [onSave]);
 
   if (!edge) return null;
-
-  const handleSave = () => {
-    onSave(edge.id, formData);
-    onClose();
-  };
 
   return (
     <div
@@ -293,13 +307,10 @@ export function EdgePropertiesPanel({
             </Select>
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex gap-2 pt-2">
-            <Button variant="outline" size="sm" onClick={onClose} className="flex-1">
-              Cancel
-            </Button>
-            <Button size="sm" onClick={handleSave} className="flex-1">
-              Apply
+          {/* Close Button */}
+          <div className="pt-2">
+            <Button variant="outline" size="sm" onClick={onClose} className="w-full">
+              Close
             </Button>
           </div>
         </CardContent>
