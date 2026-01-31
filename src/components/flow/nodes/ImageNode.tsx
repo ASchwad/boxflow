@@ -34,15 +34,17 @@ export function ImageNode({ id, data }: NodeProps<ImageNodeType>) {
     <div className="relative bg-white border border-gray-200 rounded-lg overflow-hidden shadow-sm">
       {/* Step Badge (hidden in presentation mode via CSS) */}
       <StepBadge step={step} nodeId={id} />
-      {/* Connection handles */}
+      {/* Connection handles - with IDs for edge configuration */}
       <Handle
         type="target"
         position={Position.Top}
+        id="top"
         className="!bg-gray-400 !w-2 !h-2 !border-2 !border-white"
       />
       <Handle
         type="target"
         position={Position.Left}
+        id="left"
         className="!bg-gray-400 !w-2 !h-2 !border-2 !border-white"
       />
 
@@ -84,15 +86,17 @@ export function ImageNode({ id, data }: NodeProps<ImageNodeType>) {
         </div>
       )}
 
-      {/* Source handles */}
+      {/* Source handles - with IDs for edge configuration */}
       <Handle
         type="source"
         position={Position.Bottom}
+        id="bottom"
         className="!bg-gray-400 !w-2 !h-2 !border-2 !border-white"
       />
       <Handle
         type="source"
         position={Position.Right}
+        id="right"
         className="!bg-gray-400 !w-2 !h-2 !border-2 !border-white"
       />
     </div>

@@ -17,15 +17,17 @@ export function HintNode({ id, data }: NodeProps<HintNodeType>) {
       {/* Step Badge (hidden in presentation mode via CSS) */}
       <StepBadge step={step} nodeId={id} />
 
-      {/* Connection handles */}
+      {/* Connection handles - with IDs for edge configuration */}
       <Handle
         type="target"
         position={Position.Top}
+        id="top"
         className="!bg-purple-400 !w-2 !h-2 !border-2 !border-white"
       />
       <Handle
         type="target"
         position={Position.Left}
+        id="left"
         className="!bg-purple-400 !w-2 !h-2 !border-2 !border-white"
       />
 
@@ -40,15 +42,17 @@ export function HintNode({ id, data }: NodeProps<HintNodeType>) {
         )}
       </div>
 
-      {/* Source handles */}
+      {/* Source handles - with IDs for edge configuration */}
       <Handle
         type="source"
         position={Position.Bottom}
+        id="bottom"
         className="!bg-purple-400 !w-2 !h-2 !border-2 !border-white"
       />
       <Handle
         type="source"
         position={Position.Right}
+        id="right"
         className="!bg-purple-400 !w-2 !h-2 !border-2 !border-white"
       />
     </div>
