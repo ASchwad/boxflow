@@ -76,8 +76,18 @@ function FlowCanvasInner({ initialConfig = sampleFlowConfig as FlowConfig }: Flo
       const centerY = (-y + rect.height / 2) / zoom;
 
       editor.addNode(type, { x: centerX, y: centerY });
+
+      // Smooth pan to ensure new node is visible (US-032)
+      setTimeout(() => {
+        // Fit view to include all nodes with focus on the area where node was added
+        fitView({
+          padding: 0.3,
+          duration: 300,
+          maxZoom: zoom, // Don't zoom in more than current zoom
+        });
+      }, 50);
     },
-    [getViewport, editor]
+    [getViewport, editor, fitView]
   );
 
   // Handle drop from palette
@@ -99,8 +109,27 @@ function FlowCanvasInner({ initialConfig = sampleFlowConfig as FlowConfig }: Flo
       });
 
       editor.addNode(type, position);
+      // No fitView for drag-drop - user placed it where they wanted (US-032)
     },
     [screenToFlowPosition, editor]
+  );
+
+  // Handle context menu add with viewport reposition (US-032)
+  const handleContextMenuAdd = useCallback(
+    (type: string, position: { x: number; y: number }) => {
+      const currentZoom = getViewport().zoom;
+      editor.addNode(type, position);
+
+      // Smooth pan to ensure new node is visible
+      setTimeout(() => {
+        fitView({
+          padding: 0.3,
+          duration: 300,
+          maxZoom: currentZoom, // Don't zoom in more than current zoom
+        });
+      }, 50);
+    },
+    [editor, fitView, getViewport]
   );
 
   // Stepper for presentation mode
@@ -112,10 +141,12 @@ function FlowCanvasInner({ initialConfig = sampleFlowConfig as FlowConfig }: Flo
     edges: editor.edges as any,
   });
 
-  // Fit viewport ONCE when entering presentation mode (to show all nodes)
-  // This prevents jarring viewport changes between steps
+  // Reset stepper and fit viewport when entering presentation mode
   useEffect(() => {
     if (editor.mode === 'presentation') {
+      // Reset to step 1 when entering presentation
+      stepper.reset();
+
       // Fit to ALL nodes (not just visible), so viewport stays stable during presentation
       setTimeout(() => {
         fitView({
@@ -303,7 +334,7 @@ function FlowCanvasInner({ initialConfig = sampleFlowConfig as FlowConfig }: Flo
             isEditorMode={!isPresentation}
           >
             <CanvasContextMenu
-              onAddNode={editor.addNode}
+              onAddNode={handleContextMenuAdd}
               screenToFlowPosition={screenToFlowPosition}
               disabled={isPresentation}
             >

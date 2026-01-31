@@ -81,35 +81,42 @@ export function useFlowEditor({ initialConfig }: UseFlowEditorOptions): UseFlowE
 
   const addNode = useCallback(
     (type: string, position: { x: number; y: number }) => {
-      // First node on empty canvas gets step 1, otherwise maxStep + 1
-      // Use getMaxStep() which returns 0 for empty canvas
-      const maxStep = getMaxStep();
-      const newStep = maxStep === 0 ? 1 : maxStep + 1;
       const id = `${type}-${Date.now()}`;
 
-      let data: any = { revealAtStep: newStep };
-      switch (type) {
-        case 'processStep':
-          data = { ...data, title: 'New Step', description: 'Description here' };
-          break;
-        case 'hint':
-          data = { ...data, content: 'Add your hint text here', isCode: false };
-          break;
-        case 'image':
-          data = { ...data, src: '', caption: 'Image caption', width: 200 };
-          break;
-      }
+      setNodes((nds) => {
+        // Calculate maxStep from current state inside callback to avoid stale closure
+        const maxStep = nds.length === 0
+          ? 0
+          : nds.reduce((max, node) => {
+              const step = (node.data?.revealAtStep as number) ?? 1;
+              return Math.max(max, step);
+            }, 1);
+        const newStep = maxStep === 0 ? 1 : maxStep + 1;
 
-      const newNode: Node = {
-        id,
-        type,
-        position,
-        data,
-      };
+        let data: any = { revealAtStep: newStep };
+        switch (type) {
+          case 'processStep':
+            data = { ...data, title: 'New Step', description: 'Description here' };
+            break;
+          case 'hint':
+            data = { ...data, content: 'Add your hint text here', isCode: false };
+            break;
+          case 'image':
+            data = { ...data, src: '', caption: 'Image caption', width: 200 };
+            break;
+        }
 
-      setNodes((nds) => [...nds, newNode]);
+        const newNode: Node = {
+          id,
+          type,
+          position,
+          data,
+        };
+
+        return [...nds, newNode];
+      });
     },
-    [setNodes, getMaxStep]
+    [setNodes]
   );
 
   const updateNode = useCallback(
