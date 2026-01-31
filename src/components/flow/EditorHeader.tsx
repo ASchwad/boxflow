@@ -1,6 +1,13 @@
 import { useState, useRef, useEffect, useCallback, type KeyboardEvent } from 'react';
 import { Button } from '@/components/ui/button';
-import { Play, Download, Upload, Pencil, FilePlus, Check, Loader2 } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
+import { Play, Download, Upload, Pencil, FilePlus, Check, Loader2, MoreHorizontal, ListOrdered } from 'lucide-react';
 import type { FlowMeta } from '@/types/flow';
 import type { SaveStatus } from '@/hooks/useAutoSave';
 
@@ -11,6 +18,7 @@ interface EditorHeaderProps {
   onExport: () => void;
   onImport: () => void;
   onNewFlow: () => void;
+  onNormalizeSteps: () => void;
   saveStatus: SaveStatus;
 }
 
@@ -127,6 +135,7 @@ export function EditorHeader({
   onExport,
   onImport,
   onNewFlow,
+  onNormalizeSteps,
   saveStatus,
 }: EditorHeaderProps) {
   return (
@@ -166,6 +175,22 @@ export function EditorHeader({
           <Download className="h-4 w-4 mr-1" />
           Export
         </Button>
+
+        {/* Tools dropdown */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm">
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={onNormalizeSteps}>
+              <ListOrdered className="h-4 w-4 mr-2" />
+              Normalize Steps
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
         <Button size="sm" onClick={onPresent}>
           <Play className="h-4 w-4 mr-1" />
           Present

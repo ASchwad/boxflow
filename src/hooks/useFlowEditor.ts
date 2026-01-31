@@ -37,6 +37,9 @@ interface UseFlowEditorReturn {
   // Get highest step number
   getMaxStep: () => number;
 
+  // Step operations
+  normalizeSteps: () => { oldMax: number; newMax: number };
+
   // Config operations
   getConfig: () => FlowConfig;
   loadConfig: (config: FlowConfig) => void;
@@ -216,6 +219,41 @@ export function useFlowEditor({ initialConfig }: UseFlowEditorOptions): UseFlowE
     setEdges(newEdges);
   }, [setNodes, setEdges]);
 
+  // Normalize steps to be sequential (1, 3, 7 becomes 1, 2, 3)
+  const normalizeSteps = useCallback(() => {
+    let result = { oldMax: 0, newMax: 0 };
+
+    setNodes((nds) => {
+      if (nds.length === 0) return nds;
+
+      // Get all unique steps and sort them
+      const uniqueSteps = [...new Set(
+        nds.map((n) => (n.data?.revealAtStep as number) ?? 1)
+      )].sort((a, b) => a - b);
+
+      result.oldMax = uniqueSteps[uniqueSteps.length - 1];
+      result.newMax = uniqueSteps.length;
+
+      // Create mapping from old step to new step
+      const stepMapping = new Map<number, number>();
+      uniqueSteps.forEach((oldStep, index) => {
+        stepMapping.set(oldStep, index + 1);
+      });
+
+      // Update all nodes with new step numbers
+      return nds.map((node) => {
+        const oldStep = (node.data?.revealAtStep as number) ?? 1;
+        const newStep = stepMapping.get(oldStep) ?? 1;
+        return {
+          ...node,
+          data: { ...node.data, revealAtStep: newStep },
+        };
+      });
+    });
+
+    return result;
+  }, [setNodes]);
+
   return {
     mode,
     setMode,
@@ -235,6 +273,7 @@ export function useFlowEditor({ initialConfig }: UseFlowEditorOptions): UseFlowE
     onConnect,
     deleteEdge,
     getMaxStep,
+    normalizeSteps,
     getConfig,
     loadConfig,
   };

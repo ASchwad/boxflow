@@ -303,6 +303,16 @@ function FlowCanvasInner({ initialConfig = sampleFlowConfig as FlowConfig }: Flo
     }
   }, [autoSave, editor]);
 
+  // Normalize steps handler
+  const handleNormalizeSteps = useCallback(() => {
+    const { oldMax, newMax } = editor.normalizeSteps();
+    if (oldMax === newMax) {
+      toast.info('Steps are already normalized');
+    } else {
+      toast.success(`Steps normalized: ${oldMax} → ${newMax} steps`);
+    }
+  }, [editor]);
+
   const isPresentation = editor.mode === 'presentation';
 
   return (
@@ -318,6 +328,7 @@ function FlowCanvasInner({ initialConfig = sampleFlowConfig as FlowConfig }: Flo
           onExport={handleExport}
           onImport={handleImport}
           onNewFlow={handleNewFlow}
+          onNormalizeSteps={handleNormalizeSteps}
           saveStatus={autoSave.status}
         />
       )}
@@ -376,6 +387,7 @@ function FlowCanvasInner({ initialConfig = sampleFlowConfig as FlowConfig }: Flo
               onNext={stepper.next}
               onPrevious={stepper.previous}
               onReset={stepper.reset}
+              onGoToStep={stepper.goToStep}
               isFirstStep={stepper.isFirstStep}
               isLastStep={stepper.isLastStep}
             />
