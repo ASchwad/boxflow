@@ -3,6 +3,7 @@ import { createContext, useContext, type ReactNode } from 'react';
 interface FlowEditorContextValue {
   updateNodeStep: (nodeId: string, step: number) => void;
   isEditorMode: boolean;
+  maxStep: number;
 }
 
 const FlowEditorContext = createContext<FlowEditorContextValue | null>(null);
@@ -11,15 +12,17 @@ interface FlowEditorProviderProps {
   children: ReactNode;
   updateNodeStep: (nodeId: string, step: number) => void;
   isEditorMode: boolean;
+  maxStep: number;
 }
 
 export function FlowEditorProvider({
   children,
   updateNodeStep,
   isEditorMode,
+  maxStep,
 }: FlowEditorProviderProps) {
   return (
-    <FlowEditorContext.Provider value={{ updateNodeStep, isEditorMode }}>
+    <FlowEditorContext.Provider value={{ updateNodeStep, isEditorMode, maxStep }}>
       {children}
     </FlowEditorContext.Provider>
   );
@@ -32,6 +35,7 @@ export function useFlowEditorContext() {
     return {
       updateNodeStep: () => {},
       isEditorMode: false,
+      maxStep: 1,
     };
   }
   return context;
