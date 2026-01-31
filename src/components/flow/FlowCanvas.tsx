@@ -169,6 +169,10 @@ function FlowCanvasInner({ initialConfig = sampleFlowConfig as FlowConfig }: Flo
   // Reset stepper and fit viewport when entering presentation mode
   useEffect(() => {
     if (editor.mode === 'presentation') {
+      // Close any open editing panels
+      setEditingNode(null);
+      setEditingEdge(null);
+
       // Reset to step 1 when entering presentation
       stepper.reset();
 
@@ -592,16 +596,6 @@ function FlowCanvasInner({ initialConfig = sampleFlowConfig as FlowConfig }: Flo
     }
   }, [autoSave, editor]);
 
-  // Normalize steps handler
-  const handleNormalizeSteps = useCallback(() => {
-    const { oldMax, newMax } = editor.normalizeSteps();
-    if (oldMax === newMax) {
-      toast.info('Steps are already normalized');
-    } else {
-      toast.success(`Steps normalized: ${oldMax} → ${newMax} steps`);
-    }
-  }, [editor]);
-
   const isPresentation = editor.mode === 'presentation';
 
   return (
@@ -617,11 +611,8 @@ function FlowCanvasInner({ initialConfig = sampleFlowConfig as FlowConfig }: Flo
           onExport={handleExport}
           onImport={handleImport}
           onNewFlow={handleNewFlow}
-          onNormalizeSteps={handleNormalizeSteps}
           onAutoLayout={handleAutoLayout}
           saveStatus={autoSave.status}
-          stepAssignmentMode={editor.stepAssignmentMode}
-          onStepAssignmentModeChange={editor.setStepAssignmentMode}
         />
       )}
 
@@ -720,6 +711,7 @@ function FlowCanvasInner({ initialConfig = sampleFlowConfig as FlowConfig }: Flo
             editor.setEdges((eds) => eds.map((e) => ({ ...e, selected: false })));
           }}
           onSave={handleEdgePropertiesSave}
+          isEditorMode={!isPresentation}
         />
       )}
 

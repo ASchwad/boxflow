@@ -1,10 +1,7 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback } from 'react';
 import { useNodesState, useEdgesState, type Node, type Edge, type NodeChange, type EdgeChange, type Connection } from '@xyflow/react';
-import type { FlowConfig, FlowMeta, ProcessStepNodeConfig, HintNodeConfig, ImageNodeConfig } from '@/types/flow';
+import type { FlowConfig, FlowMeta, FlowNodeConfig, ProcessStepNodeConfig, HintNodeConfig, ImageNodeConfig } from '@/types/flow';
 
-export type StepAssignmentMode = 'auto-increment' | 'same-as-last' | 'always-1';
-
-const STEP_MODE_STORAGE_KEY = 'flow-editor-step-mode';
 
 interface UseFlowEditorOptions {
   initialConfig: FlowConfig;
@@ -42,11 +39,6 @@ interface UseFlowEditorReturn {
   // Get highest step number
   getMaxStep: () => number;
 
-  // Step operations
-  normalizeSteps: () => { oldMax: number; newMax: number };
-  stepAssignmentMode: StepAssignmentMode;
-  setStepAssignmentMode: (mode: StepAssignmentMode) => void;
-
   // Config operations
   getConfig: () => FlowConfig;
   loadConfig: (config: FlowConfig) => void;
@@ -55,31 +47,6 @@ interface UseFlowEditorReturn {
 export function useFlowEditor({ initialConfig }: UseFlowEditorOptions): UseFlowEditorReturn {
   const [mode, setMode] = useState<'editor' | 'presentation'>('editor');
   const [meta, setMeta] = useState<FlowMeta>(initialConfig.meta);
-
-  // Step assignment mode with localStorage persistence
-  const [stepAssignmentMode, setStepAssignmentModeState] = useState<StepAssignmentMode>(() => {
-    try {
-      const stored = localStorage.getItem(STEP_MODE_STORAGE_KEY);
-      if (stored && ['auto-increment', 'same-as-last', 'always-1'].includes(stored)) {
-        return stored as StepAssignmentMode;
-      }
-    } catch {
-      // localStorage not available
-    }
-    return 'auto-increment';
-  });
-
-  // Track last added step for "same-as-last" mode
-  const lastAddedStepRef = useRef<number>(1);
-
-  const setStepAssignmentMode = useCallback((newMode: StepAssignmentMode) => {
-    setStepAssignmentModeState(newMode);
-    try {
-      localStorage.setItem(STEP_MODE_STORAGE_KEY, newMode);
-    } catch {
-      // localStorage not available
-    }
-  }, []);
 
   // Convert config nodes to React Flow format
   const initialNodes: Node[] = initialConfig.nodes.map((node) => ({
@@ -119,26 +86,14 @@ export function useFlowEditor({ initialConfig }: UseFlowEditorOptions): UseFlowE
       const id = `${type}-${Date.now()}`;
 
       setNodes((nds) => {
-        // Calculate step based on assignment mode
-        let newStep: number;
-
-        if (stepAssignmentMode === 'always-1') {
-          newStep = 1;
-        } else if (stepAssignmentMode === 'same-as-last') {
-          newStep = lastAddedStepRef.current;
-        } else {
-          // 'auto-increment' (default)
-          const maxStep = nds.length === 0
-            ? 0
-            : nds.reduce((max, node) => {
-                const step = (node.data?.revealAtStep as number) ?? 1;
-                return Math.max(max, step);
-              }, 1);
-          newStep = maxStep === 0 ? 1 : maxStep + 1;
-        }
-
-        // Track this step for "same-as-last" mode
-        lastAddedStepRef.current = newStep;
+        // Auto-increment: new nodes get the next step number
+        const maxStep = nds.length === 0
+          ? 0
+          : nds.reduce((max, node) => {
+              const step = (node.data?.revealAtStep as number) ?? 1;
+              return Math.max(max, step);
+            }, 1);
+        const newStep = maxStep === 0 ? 1 : maxStep + 1;
 
         let data: Record<string, unknown> = { revealAtStep: newStep };
         switch (type) {
@@ -163,7 +118,7 @@ export function useFlowEditor({ initialConfig }: UseFlowEditorOptions): UseFlowE
         return [...nds, newNode];
       });
     },
-    [setNodes, stepAssignmentMode]
+    [setNodes]
   );
 
   const updateNode = useCallback(
@@ -203,6 +158,13 @@ export function useFlowEditor({ initialConfig }: UseFlowEditorOptions): UseFlowE
         sourceHandle: connection.sourceHandle || 'bottom', // Default to bottom
         targetHandle: connection.targetHandle || 'top', // Default to top
         type: 'animatedDashed',
+        data: {
+          markerEnd: 'arrowClosed', // Default to arrow
+          lineStyle: 'dashed',
+          animation: 'flow',
+          strokeColor: '#94a3b8',
+          strokeWidth: 2,
+        },
       };
 
       setEdges((eds) => [...eds, newEdge]);
@@ -242,11 +204,11 @@ export function useFlowEditor({ initialConfig }: UseFlowEditorOptions): UseFlowE
         const { revealAtStep, ...rest } = node.data as Record<string, unknown>;
         return {
           id: node.id,
-          type: node.type as 'processStep' | 'hint' | 'image',
+          type: node.type,
           position: node.position,
           revealAtStep: (revealAtStep as number) ?? 1,
-          data: rest as ProcessStepNodeConfig['data'] | HintNodeConfig['data'] | ImageNodeConfig['data'],
-        };
+          data: rest,
+        } as FlowNodeConfig;
       }),
       edges: edges.map((edge) => ({
         id: edge.id,
@@ -287,41 +249,6 @@ export function useFlowEditor({ initialConfig }: UseFlowEditorOptions): UseFlowE
     setEdges(newEdges);
   }, [setNodes, setEdges]);
 
-  // Normalize steps to be sequential (1, 3, 7 becomes 1, 2, 3)
-  const normalizeSteps = useCallback(() => {
-    const result = { oldMax: 0, newMax: 0 };
-
-    setNodes((nds) => {
-      if (nds.length === 0) return nds;
-
-      // Get all unique steps and sort them
-      const uniqueSteps = [...new Set(
-        nds.map((n) => (n.data?.revealAtStep as number) ?? 1)
-      )].sort((a, b) => a - b);
-
-      result.oldMax = uniqueSteps[uniqueSteps.length - 1];
-      result.newMax = uniqueSteps.length;
-
-      // Create mapping from old step to new step
-      const stepMapping = new Map<number, number>();
-      uniqueSteps.forEach((oldStep, index) => {
-        stepMapping.set(oldStep, index + 1);
-      });
-
-      // Update all nodes with new step numbers
-      return nds.map((node) => {
-        const oldStep = (node.data?.revealAtStep as number) ?? 1;
-        const newStep = stepMapping.get(oldStep) ?? 1;
-        return {
-          ...node,
-          data: { ...node.data, revealAtStep: newStep },
-        };
-      });
-    });
-
-    return result;
-  }, [setNodes]);
-
   return {
     mode,
     setMode,
@@ -342,9 +269,6 @@ export function useFlowEditor({ initialConfig }: UseFlowEditorOptions): UseFlowE
     updateEdge,
     deleteEdge,
     getMaxStep,
-    normalizeSteps,
-    stepAssignmentMode,
-    setStepAssignmentMode,
     getConfig,
     loadConfig,
   };

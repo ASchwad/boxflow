@@ -1,6 +1,5 @@
-import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import type { Node } from '@xyflow/react';
-import { useReactFlow } from '@xyflow/react';
 import {
   Select,
   SelectContent,
@@ -23,7 +22,6 @@ interface NodePropertiesPanelProps {
 }
 
 const PANEL_WIDTH = 320;
-const PANEL_GAP = 16;
 
 export function NodePropertiesPanel({
   node,
@@ -32,84 +30,17 @@ export function NodePropertiesPanel({
 }: NodePropertiesPanelProps) {
   const [formData, setFormData] = useState<Record<string, unknown>>({});
   const { maxStep } = useFlowEditorContext();
-  const { getViewport, getNode } = useReactFlow();
-  const panelRef = useRef<HTMLDivElement>(null);
-  const [position, setPosition] = useState<{ x: number; y: number } | null>(null);
 
   // Reset form data when node changes
   useEffect(() => {
     if (node) {
-      setFormData({ ...node.data });
+      // Ensure revealAtStep always has a valid value
+      setFormData({
+        ...node.data,
+        revealAtStep: (node.data?.revealAtStep as number) || 1,
+      });
     }
   }, [node]);
-
-  // Calculate panel position based on node position
-  const calculatePosition = useCallback(() => {
-    if (!node) return null;
-
-    const currentNode = getNode(node.id);
-    if (!currentNode) return null;
-
-    const viewport = getViewport();
-    const nodeWidth = currentNode.measured?.width ?? 200;
-
-    // Convert node position to screen coordinates
-    const screenX = currentNode.position.x * viewport.zoom + viewport.x;
-    const screenY = currentNode.position.y * viewport.zoom + viewport.y;
-    const nodeScreenWidth = nodeWidth * viewport.zoom;
-
-    // Default: position to the right of the node
-    let x = screenX + nodeScreenWidth + PANEL_GAP;
-    let y = screenY;
-
-    // Check if panel would overflow right edge
-    if (typeof window !== 'undefined') {
-      const windowWidth = window.innerWidth;
-      if (x + PANEL_WIDTH > windowWidth - 20) {
-        // Position to the left of the node instead
-        x = screenX - PANEL_WIDTH - PANEL_GAP;
-      }
-
-      // Ensure minimum x
-      if (x < 20) {
-        x = 20;
-      }
-
-      // Ensure y is within viewport
-      const windowHeight = window.innerHeight;
-      const panelHeight = panelRef.current?.offsetHeight ?? 400;
-      if (y + panelHeight > windowHeight - 20) {
-        y = windowHeight - panelHeight - 20;
-      }
-      if (y < 80) { // Account for header
-        y = 80;
-      }
-    }
-
-    return { x, y };
-  }, [node, getViewport, getNode]);
-
-  // Update position when node changes or on interval
-  useEffect(() => {
-    if (!node) {
-      setPosition(null);
-      return;
-    }
-
-    // Calculate initial position
-    const pos = calculatePosition();
-    setPosition(pos);
-
-    // Update position periodically (for when node is dragged)
-    const interval = setInterval(() => {
-      const newPos = calculatePosition();
-      if (newPos) {
-        setPosition(newPos);
-      }
-    }, 100);
-
-    return () => clearInterval(interval);
-  }, [node, calculatePosition]);
 
   // Close on Escape key
   useEffect(() => {
@@ -128,7 +59,7 @@ export function NodePropertiesPanel({
     return Array.from({ length: max + 1 }, (_, i) => i + 1);
   }, [maxStep]);
 
-  if (!node || !position) return null;
+  if (!node) return null;
 
   const handleSave = () => {
     onSave(node.id, formData);
@@ -167,13 +98,8 @@ export function NodePropertiesPanel({
 
   return (
     <div
-      ref={panelRef}
-      className="fixed z-50 animate-in fade-in-0 zoom-in-95 duration-200"
-      style={{
-        left: position.x,
-        top: position.y,
-        width: PANEL_WIDTH,
-      }}
+      className="fixed top-20 right-4 z-50 animate-in fade-in-0 slide-in-from-right-4 duration-200"
+      style={{ width: PANEL_WIDTH }}
     >
       <Card className="shadow-xl border-2">
         <CardHeader className="pb-3">
