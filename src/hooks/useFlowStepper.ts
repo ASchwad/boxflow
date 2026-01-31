@@ -14,8 +14,8 @@ export interface StepperEdge extends Edge {
 }
 
 interface UseFlowStepperOptions {
-  nodes: StepperNode[];
-  edges: StepperEdge[];
+  nodes: Node[];
+  edges: Edge[];
 }
 
 interface UseFlowStepperReturn {
@@ -23,6 +23,7 @@ interface UseFlowStepperReturn {
   totalSteps: number;
   visibleNodes: StepperNode[];
   visibleEdges: StepperEdge[];
+  newlyVisibleNodeIds: string[]; // IDs of nodes that became visible this step
   next: () => void;
   previous: () => void;
   reset: () => void;
@@ -48,21 +49,28 @@ export function useFlowStepper({
   const [currentStep, setCurrentStep] = useState(1);
 
   // FILTER nodes - only return nodes that should be visible at current step
-  const visibleNodes = useMemo(() => {
-    const result = nodes
-      .filter((node) => {
-        const revealAt = node.data?.revealAtStep ?? 1;
-        return revealAt <= currentStep;
-      })
-      .map((node) => ({
-        ...node,
-        // Add animation class for newly revealed nodes
-        className: `${node.className || ''} ${
-          (node.data?.revealAtStep ?? 1) === currentStep ? 'animate-fade-in' : ''
-        }`.trim(),
-      }));
+  const { visibleNodes, newlyVisibleNodeIds } = useMemo(() => {
+    const visible: StepperNode[] = [];
+    const newlyVisible: string[] = [];
 
-    return result;
+    nodes.forEach((node) => {
+      const revealAt = node.data?.revealAtStep ?? 1;
+      if (revealAt <= currentStep) {
+        visible.push({
+          ...node,
+          // Add animation class for newly revealed nodes
+          className: `${node.className || ''} ${
+            revealAt === currentStep ? 'animate-fade-in' : ''
+          }`.trim(),
+        });
+        // Track nodes that are revealing at exactly this step
+        if (revealAt === currentStep) {
+          newlyVisible.push(node.id);
+        }
+      }
+    });
+
+    return { visibleNodes: visible, newlyVisibleNodeIds: newlyVisible };
   }, [nodes, currentStep]);
 
   // Only return edges that connect two visible nodes
@@ -123,6 +131,7 @@ export function useFlowStepper({
     totalSteps,
     visibleNodes,
     visibleEdges,
+    newlyVisibleNodeIds,
     next,
     previous,
     reset,

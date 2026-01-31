@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
-import { useNodesState, useEdgesState, type Node, type Edge } from '@xyflow/react';
-import type { FlowConfig, FlowMeta } from '@/types/flow';
+import { useNodesState, useEdgesState, type Node, type Edge, type NodeChange, type EdgeChange, type Connection } from '@xyflow/react';
+import type { FlowConfig, FlowMeta, ProcessStepNodeConfig, HintNodeConfig, ImageNodeConfig } from '@/types/flow';
 
 export type StepAssignmentMode = 'auto-increment' | 'same-as-last' | 'always-1';
 
@@ -26,16 +26,17 @@ interface UseFlowEditorReturn {
   edges: Edge[];
   setNodes: React.Dispatch<React.SetStateAction<Node[]>>;
   setEdges: React.Dispatch<React.SetStateAction<Edge[]>>;
-  onNodesChange: (changes: any) => void;
-  onEdgesChange: (changes: any) => void;
+  onNodesChange: (changes: NodeChange<Node>[]) => void;
+  onEdgesChange: (changes: EdgeChange<Edge>[]) => void;
 
   // Node operations
   addNode: (type: string, position: { x: number; y: number }) => void;
-  updateNode: (nodeId: string, data: any) => void;
+  updateNode: (nodeId: string, data: Partial<ProcessStepNodeConfig['data'] | HintNodeConfig['data'] | ImageNodeConfig['data']> & { revealAtStep?: number }) => void;
   deleteNode: (nodeId: string) => void;
 
   // Edge operations
-  onConnect: (connection: any) => void;
+  onConnect: (connection: Connection) => void;
+  updateEdge: (edgeId: string, data: { sourceHandle?: string; targetHandle?: string } & Record<string, unknown>) => void;
   deleteEdge: (edgeId: string) => void;
 
   // Get highest step number
@@ -62,7 +63,9 @@ export function useFlowEditor({ initialConfig }: UseFlowEditorOptions): UseFlowE
       if (stored && ['auto-increment', 'same-as-last', 'always-1'].includes(stored)) {
         return stored as StepAssignmentMode;
       }
-    } catch {}
+    } catch {
+      // localStorage not available
+    }
     return 'auto-increment';
   });
 
@@ -73,7 +76,9 @@ export function useFlowEditor({ initialConfig }: UseFlowEditorOptions): UseFlowE
     setStepAssignmentModeState(newMode);
     try {
       localStorage.setItem(STEP_MODE_STORAGE_KEY, newMode);
-    } catch {}
+    } catch {
+      // localStorage not available
+    }
   }, []);
 
   // Convert config nodes to React Flow format
@@ -135,7 +140,7 @@ export function useFlowEditor({ initialConfig }: UseFlowEditorOptions): UseFlowE
         // Track this step for "same-as-last" mode
         lastAddedStepRef.current = newStep;
 
-        let data: any = { revealAtStep: newStep };
+        let data: Record<string, unknown> = { revealAtStep: newStep };
         switch (type) {
           case 'processStep':
             data = { ...data, title: 'New Step', description: 'Description here' };
@@ -162,7 +167,7 @@ export function useFlowEditor({ initialConfig }: UseFlowEditorOptions): UseFlowE
   );
 
   const updateNode = useCallback(
-    (nodeId: string, data: any) => {
+    (nodeId: string, data: Partial<ProcessStepNodeConfig['data'] | HintNodeConfig['data'] | ImageNodeConfig['data']> & { revealAtStep?: number }) => {
       setNodes((nds) =>
         nds.map((node) =>
           node.id === nodeId ? { ...node, data: { ...node.data, ...data } } : node
@@ -181,7 +186,7 @@ export function useFlowEditor({ initialConfig }: UseFlowEditorOptions): UseFlowE
   );
 
   const onConnect = useCallback(
-    (connection: any) => {
+    (connection: Connection) => {
       // Prevent duplicate edges
       const exists = edges.some(
         (e) => e.source === connection.source && e.target === connection.target
@@ -195,12 +200,32 @@ export function useFlowEditor({ initialConfig }: UseFlowEditorOptions): UseFlowE
         id: `e-${connection.source}-${connection.target}`,
         source: connection.source,
         target: connection.target,
+        sourceHandle: connection.sourceHandle || 'bottom', // Default to bottom
+        targetHandle: connection.targetHandle || 'top', // Default to top
         type: 'animatedDashed',
       };
 
       setEdges((eds) => [...eds, newEdge]);
     },
     [edges, setEdges]
+  );
+
+  const updateEdge = useCallback(
+    (edgeId: string, data: { sourceHandle?: string; targetHandle?: string } & Record<string, unknown>) => {
+      setEdges((eds) =>
+        eds.map((edge) =>
+          edge.id === edgeId
+            ? {
+                ...edge,
+                sourceHandle: data.sourceHandle ?? edge.sourceHandle,
+                targetHandle: data.targetHandle ?? edge.targetHandle,
+                data: { ...edge.data, ...data },
+              }
+            : edge
+        )
+      );
+    },
+    [setEdges]
   );
 
   const deleteEdge = useCallback(
@@ -220,13 +245,15 @@ export function useFlowEditor({ initialConfig }: UseFlowEditorOptions): UseFlowE
           type: node.type as 'processStep' | 'hint' | 'image',
           position: node.position,
           revealAtStep: (revealAtStep as number) ?? 1,
-          data: rest as any,
+          data: rest as ProcessStepNodeConfig['data'] | HintNodeConfig['data'] | ImageNodeConfig['data'],
         };
       }),
       edges: edges.map((edge) => ({
         id: edge.id,
         source: edge.source,
         target: edge.target,
+        sourceHandle: (edge.sourceHandle as 'top' | 'bottom' | 'left' | 'right') || 'bottom',
+        targetHandle: (edge.targetHandle as 'top' | 'bottom' | 'left' | 'right') || 'top',
         type: (edge.type as 'animatedDashed' | 'default') || 'animatedDashed',
       })),
       settings: initialConfig.settings,
@@ -250,6 +277,8 @@ export function useFlowEditor({ initialConfig }: UseFlowEditorOptions): UseFlowE
       id: edge.id,
       source: edge.source,
       target: edge.target,
+      sourceHandle: edge.sourceHandle || 'bottom',
+      targetHandle: edge.targetHandle || 'top',
       type: edge.type || 'animatedDashed',
     }));
 
@@ -260,7 +289,7 @@ export function useFlowEditor({ initialConfig }: UseFlowEditorOptions): UseFlowE
 
   // Normalize steps to be sequential (1, 3, 7 becomes 1, 2, 3)
   const normalizeSteps = useCallback(() => {
-    let result = { oldMax: 0, newMax: 0 };
+    const result = { oldMax: 0, newMax: 0 };
 
     setNodes((nds) => {
       if (nds.length === 0) return nds;
@@ -310,6 +339,7 @@ export function useFlowEditor({ initialConfig }: UseFlowEditorOptions): UseFlowE
     updateNode,
     deleteNode,
     onConnect,
+    updateEdge,
     deleteEdge,
     getMaxStep,
     normalizeSteps,
