@@ -47,9 +47,9 @@ export function useFlowStepper({
 
   const [currentStep, setCurrentStep] = useState(1);
 
-  // Filter visible nodes based on current step
+  // FILTER nodes - only return nodes that should be visible at current step
   const visibleNodes = useMemo(() => {
-    return nodes
+    const result = nodes
       .filter((node) => {
         const revealAt = node.data?.revealAtStep ?? 1;
         return revealAt <= currentStep;
@@ -61,27 +61,39 @@ export function useFlowStepper({
           (node.data?.revealAtStep ?? 1) === currentStep ? 'animate-fade-in' : ''
         }`.trim(),
       }));
+
+    return result;
   }, [nodes, currentStep]);
 
-  // Filter visible edges - only show if both source and target nodes are visible
+  // Only return edges that connect two visible nodes
   const visibleEdges = useMemo(() => {
-    const visibleNodeIds = new Set(visibleNodes.map((n) => n.id));
+    // Build set of visible node IDs directly from nodes (source of truth)
+    const visibleNodeIds = new Set<string>();
+    nodes.forEach((node) => {
+      const revealAt = node.data?.revealAtStep ?? 1;
+      if (revealAt <= currentStep) {
+        visibleNodeIds.add(node.id);
+      }
+    });
 
+    // Filter - only return edges where both source and target are visible
     return edges.filter((edge) => {
-      // Edge is ONLY visible when BOTH connected nodes are visible
       const sourceVisible = visibleNodeIds.has(edge.source);
       const targetVisible = visibleNodeIds.has(edge.target);
+
+      if (!sourceVisible || !targetVisible) {
+        return false;
+      }
 
       // If edge has explicit revealAtStep, also check that
       const edgeRevealAt = edge.data?.revealAtStep;
       if (edgeRevealAt !== undefined) {
-        return edgeRevealAt <= currentStep && sourceVisible && targetVisible;
+        return edgeRevealAt <= currentStep;
       }
 
-      // Default: show edge only if both nodes are visible
-      return sourceVisible && targetVisible;
+      return true;
     });
-  }, [edges, visibleNodes, currentStep]);
+  }, [nodes, edges, currentStep]);
 
   const next = useCallback(() => {
     setCurrentStep((s) => Math.min(s + 1, totalSteps));

@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useRef, useState, type DragEvent } from 'react';
+import { useEffect, useCallback, useRef, useState, useMemo, type DragEvent } from 'react';
 import {
   ReactFlow,
   Background,
@@ -123,12 +123,18 @@ function FlowCanvasInner({ initialConfig = sampleFlowConfig as FlowConfig }: Flo
     [editor, fitView, getViewport]
   );
 
-  // Stepper for presentation mode
-  const stepper = useFlowStepper({
-    nodes: editor.nodes.map((n) => ({
+  // Prepare nodes for stepper - ensure revealAtStep is always defined
+  const stepperNodes = useMemo(() =>
+    editor.nodes.map((n) => ({
       ...n,
       data: { ...n.data, revealAtStep: (n.data?.revealAtStep as number) ?? 1 },
-    })) as any,
+    })),
+    [editor.nodes]
+  );
+
+  // Stepper for presentation mode
+  const stepper = useFlowStepper({
+    nodes: stepperNodes as any,
     edges: editor.edges as any,
   });
 
@@ -138,12 +144,12 @@ function FlowCanvasInner({ initialConfig = sampleFlowConfig as FlowConfig }: Flo
       // Reset to step 1 when entering presentation
       stepper.reset();
 
-      // Fit to ALL nodes (not just visible), so viewport stays stable during presentation
+      // Fit to ALL nodes so viewport stays stable during presentation
       setTimeout(() => {
         fitView({
           padding: 0.3,
           duration: 400,
-          nodes: editor.nodes, // All nodes, not just visible
+          nodes: editor.nodes,
         });
       }, 50);
     }
