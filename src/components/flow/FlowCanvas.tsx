@@ -8,7 +8,9 @@ import {
   ReactFlowProvider,
   SelectionMode,
   type Node,
+  type Edge,
   type NodeMouseHandler,
+  type EdgeMouseHandler,
   type OnSelectionChangeFunc,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
@@ -21,11 +23,13 @@ import { NodePalette } from './editor/NodePalette';
 import { CanvasContextMenu } from './editor/CanvasContextMenu';
 import { NodeContextMenu } from './editor/NodeContextMenu';
 import { NodePropertiesPanel } from './editor/NodePropertiesPanel';
+import { EdgePropertiesPanel } from './editor/EdgePropertiesPanel';
 import { KeyboardShortcutsHelp } from './KeyboardShortcutsHelp';
 import { useFlowEditor } from '@/hooks/useFlowEditor';
 import { useFlowStepper } from '@/hooks/useFlowStepper';
 import { useKeyboardNavigation } from '@/hooks/useKeyboardNavigation';
 import { useAutoSave } from '@/hooks/useAutoSave';
+import { useAutoLayout, type LayoutDirection } from '@/hooks/useAutoLayout';
 import { FlowEditorProvider } from '@/contexts/FlowEditorContext';
 import type { FlowConfig } from '@/types/flow';
 import { toast } from 'sonner';
@@ -36,10 +40,14 @@ interface FlowCanvasProps {
   initialConfig?: FlowConfig;
 }
 
+// Clipboard state for copy/paste (stored outside component to persist across re-renders)
+let clipboard: { nodes: Node[]; edges: { id: string; source: string; target: string; type?: string }[] } | null = null;
+
 function FlowCanvasInner({ initialConfig = sampleFlowConfig as FlowConfig }: FlowCanvasProps) {
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const { fitView, screenToFlowPosition, getViewport } = useReactFlow();
   const [editingNode, setEditingNode] = useState<Node | null>(null);
+  const [editingEdge, setEditingEdge] = useState<Edge | null>(null);
   const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
   const [showKeyboardHelp, setShowKeyboardHelp] = useState(false);
 
@@ -53,6 +61,26 @@ function FlowCanvasInner({ initialConfig = sampleFlowConfig as FlowConfig }: Flo
     getConfig: editor.getConfig,
     loadConfig: editor.loadConfig,
   });
+
+  // Auto-layout functionality
+  const { applyLayout } = useAutoLayout({
+    nodes: editor.nodes,
+    edges: editor.edges,
+    setNodes: editor.setNodes,
+  });
+
+  // Handle auto-layout with toast notification
+  const handleAutoLayout = useCallback(
+    (direction: LayoutDirection) => {
+      applyLayout(direction);
+      toast.success(`Layout applied: ${direction === 'TB' ? 'Top to Bottom' : 'Left to Right'}`);
+      // Fit view after layout
+      setTimeout(() => {
+        fitView({ padding: 0.2, duration: 300 });
+      }, 50);
+    },
+    [applyLayout, fitView]
+  );
 
   // Handle click-to-add from palette (adds node at viewport center)
   const handlePaletteAdd = useCallback(
@@ -134,8 +162,8 @@ function FlowCanvasInner({ initialConfig = sampleFlowConfig as FlowConfig }: Flo
 
   // Stepper for presentation mode
   const stepper = useFlowStepper({
-    nodes: stepperNodes as any,
-    edges: editor.edges as any,
+    nodes: stepperNodes,
+    edges: editor.edges,
   });
 
   // Reset stepper and fit viewport when entering presentation mode
@@ -156,6 +184,23 @@ function FlowCanvasInner({ initialConfig = sampleFlowConfig as FlowConfig }: Flo
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor.mode, fitView]); // Only trigger on mode change, NOT on step change
 
+  // Auto-fit viewport when new nodes become visible in presentation mode
+  useEffect(() => {
+    if (editor.mode !== 'presentation') return;
+    if (stepper.newlyVisibleNodeIds.length === 0) return;
+    if (stepper.currentStep === 1) return; // Don't re-fit on step 1 (already done on enter)
+
+    // Fit view to include all currently visible nodes
+    setTimeout(() => {
+      fitView({
+        padding: 0.2,
+        duration: 400,
+        nodes: stepper.visibleNodes,
+      });
+    }, 50);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editor.mode, stepper.currentStep, stepper.newlyVisibleNodeIds.length]);
+
   // Keyboard navigation (only in presentation mode)
   useKeyboardNavigation({
     onNext: stepper.next,
@@ -165,11 +210,180 @@ function FlowCanvasInner({ initialConfig = sampleFlowConfig as FlowConfig }: Flo
     enabled: editor.mode === 'presentation',
   });
 
+  // Select all nodes (Cmd+A / Ctrl+A)
+  const handleSelectAll = useCallback(() => {
+    if (editor.mode !== 'editor') return;
+
+    editor.setNodes((nodes) =>
+      nodes.map((node) => ({ ...node, selected: true }))
+    );
+  }, [editor]);
+
+  // Copy selected nodes (Cmd+C / Ctrl+C)
+  const handleCopy = useCallback(() => {
+    if (editor.mode !== 'editor' || selectedNodeIds.length === 0) return;
+
+    const selectedNodes = editor.nodes.filter((n) => selectedNodeIds.includes(n.id));
+    const selectedNodeIdSet = new Set(selectedNodeIds);
+
+    // Also copy edges that connect selected nodes
+    const connectedEdges = editor.edges.filter(
+      (e) => selectedNodeIdSet.has(e.source) && selectedNodeIdSet.has(e.target)
+    );
+
+    clipboard = {
+      nodes: selectedNodes.map((n) => ({ ...n })),
+      edges: connectedEdges.map((e) => ({
+        id: e.id,
+        source: e.source,
+        target: e.target,
+        type: e.type,
+      })),
+    };
+
+    toast.success(`Copied ${selectedNodes.length} node${selectedNodes.length > 1 ? 's' : ''}`);
+  }, [editor.mode, editor.nodes, editor.edges, selectedNodeIds]);
+
+  // Paste nodes (Cmd+V / Ctrl+V)
+  const handlePaste = useCallback(() => {
+    if (editor.mode !== 'editor' || !clipboard || clipboard.nodes.length === 0) return;
+
+    const offset = { x: 50, y: 50 };
+    const idMapping = new Map<string, string>();
+
+    // Create new nodes with new IDs and offset positions
+    const newNodes: Node[] = clipboard.nodes.map((node) => {
+      const newId = `${node.type}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      idMapping.set(node.id, newId);
+
+      return {
+        ...node,
+        id: newId,
+        position: {
+          x: node.position.x + offset.x,
+          y: node.position.y + offset.y,
+        },
+        selected: true, // Select pasted nodes
+        data: { ...node.data },
+      };
+    });
+
+    // Create new edges with updated source/target IDs
+    const newEdges = clipboard.edges.map((edge) => ({
+      id: `e-${idMapping.get(edge.source)}-${idMapping.get(edge.target)}`,
+      source: idMapping.get(edge.source)!,
+      target: idMapping.get(edge.target)!,
+      type: edge.type || 'animatedDashed',
+    }));
+
+    // Deselect existing nodes and add new ones
+    editor.setNodes((nodes) => [
+      ...nodes.map((n) => ({ ...n, selected: false })),
+      ...newNodes,
+    ]);
+
+    if (newEdges.length > 0) {
+      editor.setEdges((edges) => [...edges, ...newEdges]);
+    }
+
+    // Update clipboard positions for next paste
+    clipboard = {
+      nodes: clipboard.nodes.map((n) => ({
+        ...n,
+        position: { x: n.position.x + offset.x, y: n.position.y + offset.y },
+      })),
+      edges: clipboard.edges,
+    };
+
+    toast.success(`Pasted ${newNodes.length} node${newNodes.length > 1 ? 's' : ''}`);
+  }, [editor]);
+
+  // Track if we're in alt-drag duplicate mode
+  const altDragRef = useRef<{ originalPositions: Map<string, { x: number; y: number }>; duplicatedIds: Set<string> } | null>(null);
+
+  // Handle node drag start - check for Alt key to duplicate
+  const handleNodeDragStart = useCallback(
+    (event: React.MouseEvent, node: Node) => {
+      if (!event.altKey || editor.mode !== 'editor') {
+        altDragRef.current = null;
+        return;
+      }
+
+      // Get all selected nodes (or just the dragged node if not selected)
+      const nodesToDuplicate = selectedNodeIds.includes(node.id)
+        ? editor.nodes.filter((n) => selectedNodeIds.includes(n.id))
+        : [node];
+
+      const idMapping = new Map<string, string>();
+      const originalPositions = new Map<string, { x: number; y: number }>();
+
+      // Create duplicates at the same positions
+      const newNodes: Node[] = nodesToDuplicate.map((n) => {
+        const newId = `${n.type}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        idMapping.set(n.id, newId);
+        originalPositions.set(n.id, { ...n.position });
+
+        return {
+          ...n,
+          id: newId,
+          position: { ...n.position },
+          selected: false, // Duplicates are not selected
+          data: { ...n.data },
+        };
+      });
+
+      // Track duplicated node IDs
+      altDragRef.current = {
+        originalPositions,
+        duplicatedIds: new Set(idMapping.values()),
+      };
+
+      // Add duplicates (they will stay in place while originals are dragged)
+      editor.setNodes((nodes) => [...nodes, ...newNodes]);
+
+      toast.success(`Duplicated ${nodesToDuplicate.length} node${nodesToDuplicate.length > 1 ? 's' : ''}`);
+    },
+    [editor, selectedNodeIds]
+  );
+
+  // Handle node drag stop - clear alt-drag state
+  const handleNodeDragStop = useCallback(() => {
+    // Just clear the ref - duplicates are already in place at original positions
+    altDragRef.current = null;
+  }, []);
+
   // Global keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Don't trigger shortcuts when typing in inputs
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+
+      // Cmd/Ctrl+A to select all nodes (editor mode only)
+      if ((e.metaKey || e.ctrlKey) && e.key === 'a') {
+        if (editor.mode === 'editor') {
+          e.preventDefault();
+          handleSelectAll();
+        }
+        return;
+      }
+
+      // Cmd/Ctrl+C to copy selected nodes
+      if ((e.metaKey || e.ctrlKey) && e.key === 'c') {
+        if (editor.mode === 'editor' && selectedNodeIds.length > 0) {
+          e.preventDefault();
+          handleCopy();
+        }
+        return;
+      }
+
+      // Cmd/Ctrl+V to paste nodes
+      if ((e.metaKey || e.ctrlKey) && e.key === 'v') {
+        if (editor.mode === 'editor' && clipboard) {
+          e.preventDefault();
+          handlePaste();
+        }
         return;
       }
 
@@ -191,7 +405,7 @@ function FlowCanvasInner({ initialConfig = sampleFlowConfig as FlowConfig }: Flo
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [editor.mode, editor.exitPresentation, showKeyboardHelp]);
+  }, [editor.mode, editor.exitPresentation, showKeyboardHelp, handleSelectAll, handleCopy, handlePaste, selectedNodeIds]);
 
   // Handle deletion of selected nodes and edges
   const handleNodesDelete = useCallback(
@@ -212,18 +426,53 @@ function FlowCanvasInner({ initialConfig = sampleFlowConfig as FlowConfig }: Flo
     [editor]
   );
 
-  // Handle node double-click for editing
-  const handleNodeDoubleClick: NodeMouseHandler = useCallback(
+  // Handle node click for editing (single click to open panel)
+  const handleNodeClick: NodeMouseHandler = useCallback(
     (_event, node) => {
       setEditingNode(node);
+      setEditingEdge(null); // Close edge panel if open
+      // Deselect edges when clicking on a node
+      editor.setEdges((eds) => eds.map((e) => ({ ...e, selected: false })));
     },
-    []
+    [editor]
+  );
+
+  // Handle pane click to close all panels and deselect edges
+  const handlePaneClick = useCallback(() => {
+    setEditingNode(null);
+    setEditingEdge(null);
+    // Deselect edges when clicking on empty canvas
+    editor.setEdges((eds) => eds.map((e) => ({ ...e, selected: false })));
+  }, [editor]);
+
+  // Handle edge click for editing
+  const handleEdgeClick: EdgeMouseHandler = useCallback(
+    (_event, edge) => {
+      setEditingEdge(edge);
+      setEditingNode(null); // Close node panel if open
+
+      // Select this edge (deselect others)
+      editor.setEdges((eds) =>
+        eds.map((e) => ({ ...e, selected: e.id === edge.id }))
+      );
+      // Deselect nodes
+      editor.setNodes((nds) => nds.map((n) => ({ ...n, selected: false })));
+    },
+    [editor]
   );
 
   // Handle node property changes
   const handleNodePropertiesSave = useCallback(
     (nodeId: string, data: Record<string, unknown>) => {
       editor.updateNode(nodeId, data);
+    },
+    [editor]
+  );
+
+  // Handle edge property changes
+  const handleEdgePropertiesSave = useCallback(
+    (edgeId: string, data: Record<string, unknown>) => {
+      editor.updateEdge(edgeId, data);
     },
     [editor]
   );
@@ -369,6 +618,7 @@ function FlowCanvasInner({ initialConfig = sampleFlowConfig as FlowConfig }: Flo
           onImport={handleImport}
           onNewFlow={handleNewFlow}
           onNormalizeSteps={handleNormalizeSteps}
+          onAutoLayout={handleAutoLayout}
           saveStatus={autoSave.status}
           stepAssignmentMode={editor.stepAssignmentMode}
           onStepAssignmentModeChange={editor.setStepAssignmentMode}
@@ -385,6 +635,7 @@ function FlowCanvasInner({ initialConfig = sampleFlowConfig as FlowConfig }: Flo
           <FlowEditorProvider
             updateNodeStep={handleUpdateNodeStep}
             isEditorMode={!isPresentation}
+            maxStep={editor.getMaxStep()}
           >
             <NodeContextMenu
               selectedNodeIds={selectedNodeIds}
@@ -406,7 +657,11 @@ function FlowCanvasInner({ initialConfig = sampleFlowConfig as FlowConfig }: Flo
                   onConnect={isPresentation ? undefined : editor.onConnect}
                   onNodesDelete={isPresentation ? undefined : handleNodesDelete}
                   onEdgesDelete={isPresentation ? undefined : handleEdgesDelete}
-                  onNodeDoubleClick={isPresentation ? undefined : handleNodeDoubleClick}
+                  onNodeClick={isPresentation ? undefined : handleNodeClick}
+                  onEdgeClick={isPresentation ? undefined : handleEdgeClick}
+                  onPaneClick={isPresentation ? undefined : handlePaneClick}
+                  onNodeDragStart={isPresentation ? undefined : handleNodeDragStart}
+                  onNodeDragStop={isPresentation ? undefined : handleNodeDragStop}
                   onDragOver={isPresentation ? undefined : onDragOver}
                   onDrop={isPresentation ? undefined : onDrop}
                   nodeTypes={nodeTypes}
@@ -452,6 +707,19 @@ function FlowCanvasInner({ initialConfig = sampleFlowConfig as FlowConfig }: Flo
           node={editingNode}
           onClose={() => setEditingNode(null)}
           onSave={handleNodePropertiesSave}
+        />
+      )}
+
+      {/* Edge Properties Panel (editor only) */}
+      {!isPresentation && (
+        <EdgePropertiesPanel
+          edge={editingEdge}
+          onClose={() => {
+            setEditingEdge(null);
+            // Deselect the edge when closing the panel
+            editor.setEdges((eds) => eds.map((e) => ({ ...e, selected: false })));
+          }}
+          onSave={handleEdgePropertiesSave}
         />
       )}
 
