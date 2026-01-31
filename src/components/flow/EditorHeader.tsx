@@ -12,7 +12,8 @@ import {
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
 } from '@/components/ui/dropdown-menu';
-import { Play, Download, Upload, Pencil, FilePlus, Check, Loader2, MoreHorizontal, ListOrdered, Settings2 } from 'lucide-react';
+import { Play, Download, Upload, Pencil, FilePlus, Check, Loader2, MoreHorizontal, ListOrdered, Settings2, LayoutGrid } from 'lucide-react';
+import type { LayoutDirection } from '@/hooks/useAutoLayout';
 import type { FlowMeta } from '@/types/flow';
 import type { SaveStatus } from '@/hooks/useAutoSave';
 import type { StepAssignmentMode } from '@/hooks/useFlowEditor';
@@ -25,6 +26,7 @@ interface EditorHeaderProps {
   onImport: () => void;
   onNewFlow: () => void;
   onNormalizeSteps: () => void;
+  onAutoLayout: (direction: LayoutDirection) => void;
   saveStatus: SaveStatus;
   stepAssignmentMode: StepAssignmentMode;
   onStepAssignmentModeChange: (mode: StepAssignmentMode) => void;
@@ -150,6 +152,7 @@ export function EditorHeader({
   onImport,
   onNewFlow,
   onNormalizeSteps,
+  onAutoLayout,
   saveStatus,
   stepAssignmentMode,
   onStepAssignmentModeChange,
@@ -200,6 +203,20 @@ export function EditorHeader({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <LayoutGrid className="h-4 w-4 mr-2" />
+                Auto Layout
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent>
+                <DropdownMenuItem onClick={() => onAutoLayout('TB')}>
+                  Top to Bottom
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => onAutoLayout('LR')}>
+                  Left to Right
+                </DropdownMenuItem>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
             <DropdownMenuItem onClick={onNormalizeSteps}>
               <ListOrdered className="h-4 w-4 mr-2" />
               Normalize Steps
