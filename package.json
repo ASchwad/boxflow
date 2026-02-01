@@ -1,5 +1,6 @@
 {
-  "name": "react-flow-visualization-stepper",
+  "name": "boxflow",
+  "description": "BoxFlow - Visual flow editor built with React Flow",
   "private": true,
   "version": "0.1.0",
   "type": "module",
